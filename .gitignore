@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 .DS_Store
 data/*.tmp
+data/source_status.json
 .env*
 !.env.example
 *.pem

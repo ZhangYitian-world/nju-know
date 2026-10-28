@@ -44,6 +44,20 @@ export type Item = {
   url: string;
 };
 
+export type OfficialSource = {
+  name: string;
+  pages: string[];
+  status: "ok" | "partial" | "unavailable";
+  checked_at: string;
+  last_success: string;
+  latest_date: string;
+  item_count: number;
+};
+
+export function loadOfficialSources(): OfficialSource[] {
+  return readJson<OfficialSource[]>("source_status.json", []);
+}
+
 const SIGNUP = /报名|申报|招募|招新|纳新|预约/;
 
 function readJson<T>(file: string, fallback: T): T {

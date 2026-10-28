@@ -3,7 +3,8 @@ import re
 import threading
 import time
 import xml.etree.ElementTree as ET
-from datetime import date, timedelta
+from concurrent.futures import ThreadPoolExecutor
+from datetime import date, datetime, timedelta
 from email.utils import parsedate_to_datetime
 from html import unescape
 from html.parser import HTMLParser
@@ -11,11 +12,14 @@ from pathlib import Path
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
+from source_parsers import BEIJING, EmbeddedListParser, NoticeListParser
+
 BASE = Path(__file__).parent
 DATA_FILE = BASE / "data" / "notices.json"
+SOURCE_STATUS_FILE = BASE / "data" / "source_status.json"
 
 ACTIVITY_WORDS = (
-    "活动", "大赛", "比赛", "竞赛", "报名", "招募", "征集", "讲座", "沙龙",
+    "活动", "大赛", "比赛", "竞赛", "报名", "招募", "征集", "讲座", "沙龙", "学术报告", "讲坛",
     "演出", "论坛", "分享会", "训练营", "夏令营", "志愿者", "开放日", "展览", "晚会",
 )
 DEADLINE_KEYWORDS = ("截止", "报名", "提交")
@@ -143,6 +147,14 @@ SOURCES = [
     },
 ]
 
+# New sources use public list pages only; no credentials or paid model are needed.
+for config in json.loads((BASE / "official_sources.json").read_text("utf-8")):
+    SOURCES.append({
+        **config,
+        "parser": {"list": NoticeListParser, "cms": EmbeddedListParser}[config["parser"]],
+        "enrich": False,
+    })
+
 
 def classify(title, category):
     tags = [t for t in re.split(r"[,，、\s]+", category) if t]
@@ -231,7 +243,7 @@ def write_json(path, data):
 
 def filter_expired(notices):
     """活动过期（截止日已过 / 太久没截止日）或通知超过保留期，则删除。"""
-    today = date.today()
+    today = datetime.now(BEIJING).date()
     keep, dropped = [], []
     for n in notices:
         if n.get("type") == "活动":
@@ -258,84 +270,104 @@ def scrape():
         SCRAPE_LOCK.release()
 
 
-def _scrape():
-    seen = set()
-    notices = []
-    total_fetched = 0
-
-    for source in SOURCES:
-        print(f"[{source['name']}]")
-        for url in source["pages"]:
-            try:
-                html = fetch(url)
-            except Exception as e:
-                print(f"  失败 {url} -> {e}")
-                continue
-
+def collect_source(source):
+    """Bounded work per source; an unreadable or changed list is a source failure."""
+    items, failed_pages, seen = [], 0, set()
+    for url in source["pages"]:
+        try:
+            html = fetch(url)
             if source.get("type") == "rss":
                 raw_items = parse_rss(html)
             else:
                 parser = source["parser"](url)
                 parser.feed(html)
                 raw_items = parser.items
-
-            total_fetched += len(raw_items)
-
-            added = 0
+            valid_items = []
             for raw in raw_items:
-                title = raw["title"]
-                if not title or raw["url"] in seen:
+                try:
+                    published = date.fromisoformat(raw.get("date", "")).isoformat()
+                except (ValueError, TypeError):
                     continue
-                if any(word in title for word in source.get("exclude", [])):
+                if published > datetime.now(BEIJING).date().isoformat():
                     continue
-                seen.add(raw["url"])
-                grades, tags = classify(title, raw["category"])
-                notices.append(
-                    {
-                        "id": 0,
-                        "title": title,
-                        "source": source["name"],
-                        "organizer": source["name"],
-                        "type": classify_type(title),
-                        "date": raw["date"],
-                        "deadline": "",
-                        "grades": grades,
-                        "tags": tags,
-                        "url": raw["url"],
-                        "summary": "",
-                        "_enrich": source.get("enrich", True),
-                    }
-                )
-                added += 1
-            print(f"  {url} -> 新增 {added} 条")
-            time.sleep(0.5)
+                if not raw.get("title") or not raw.get("url"):
+                    continue
+                if source.get("article_pattern") and not re.search(source["article_pattern"], raw["url"]):
+                    continue
+                valid_items.append({**raw, "date": published})
+            if not valid_items:
+                raise ValueError("未解析到有效的带日期文章")
+            for raw in valid_items:
+                if raw["url"] not in seen:
+                    seen.add(raw["url"])
+                    items.append(raw)
+            print(f"[{source['name']}] {url} -> {len(valid_items)} 条")
+        except Exception as e:
+            failed_pages += 1
+            print(f"[{source['name']}] 列表不可用 {url}: {e}")
+        time.sleep(0.25)
+    # Embedded JSON can contain years of records; never enrich or publish all of them.
+    items.sort(key=lambda n: n["date"], reverse=True)
+    return items[:60], failed_pages
 
-    if total_fetched == 0:
-        print("\n所有来源均未获取到内容（网络异常或站点改版），保留原有数据，不覆盖。")
-        return 0
 
-    print(f"\n抽取正文信息（发布单位 / 截止日期）…")
-    for n in notices:
-        if not n.pop("_enrich", True):
-            continue
-        organizer, deadline = enrich(n["url"], n["date"])
-        if organizer:
-            n["organizer"] = organizer
-        n["deadline"] = deadline
+def _scrape():
+    previous = json.loads(DATA_FILE.read_text("utf-8")) if DATA_FILE.exists() else []
+    old_by_url = {n["url"]: n for n in previous}
+    old_status = json.loads(SOURCE_STATUS_FILE.read_text("utf-8")) if SOURCE_STATUS_FILE.exists() else []
+    last_success = {s["name"]: s.get("last_success", "") for s in old_status}
+    checked_at = datetime.now(BEIJING).isoformat(timespec="seconds")
+    notices, statuses, seen = [], [], set()
 
-    keep, dropped = filter_expired(notices)
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(pool.map(collect_source, SOURCES))
 
-    print(f"过期清理：删除 {len(dropped)} 条")
-    for n in dropped[:10]:
-        print(f"  - [{n['type']}] {n['title'][:30]}（截止 {n['deadline'] or n['date']}）")
+    for source, (raw_items, failed_pages) in zip(SOURCES, results):
+        source_items = []
+        for raw in raw_items:
+            if any(word in raw["title"] for word in source.get("exclude", [])):
+                continue
+            cached = old_by_url.get(raw["url"])
+            if cached and cached["title"] == raw["title"] and cached["date"] == raw["date"]:
+                source_items.append({**cached, "source": source["name"]})
+                continue
+            grades, tags = classify(raw["title"], raw.get("category", ""))
+            organizer, deadline = source["name"], ""
+            if source.get("enrich", True):
+                publisher, deadline = enrich(raw["url"], raw["date"])
+                organizer = publisher or organizer
+            source_items.append({
+                "id": 0, "title": raw["title"], "source": source["name"],
+                "organizer": organizer, "type": classify_type(raw["title"]),
+                "date": raw["date"], "deadline": deadline, "grades": grades,
+                "tags": tags, "url": raw["url"], "summary": "",
+            })
+        if failed_pages:
+            # Preserve this source, even when other sites succeed. Expiration still applies.
+            source_items += [n for n in previous if n.get("source") == source["name"]]
+        keep, _ = filter_expired(source_items)
+        kept_urls = set()
+        for n in keep:
+            kept_urls.add(n["url"])
+            if n["url"] not in seen:
+                seen.add(n["url"])
+                notices.append(n)
+        statuses.append({
+            "name": source["name"], "pages": source["pages"],
+            "status": "ok" if not failed_pages else ("partial" if raw_items else "unavailable"),
+            "checked_at": checked_at,
+            "last_success": checked_at if not failed_pages else last_success.get(source["name"], ""),
+            "latest_date": max((n["date"] for n in keep), default=""),
+            "item_count": len(kept_urls),
+        })
 
-    keep.sort(key=lambda n: n["date"], reverse=True)
-    for i, n in enumerate(keep, start=1):
+    notices.sort(key=lambda n: n["date"], reverse=True)
+    for i, n in enumerate(notices, start=1):
         n["id"] = i
-
-    write_json(DATA_FILE, keep)
-    print(f"\n抓取完成，共 {len(keep)} 条，已写入 {DATA_FILE}")
-    return len(keep)
+    write_json(DATA_FILE, notices)
+    write_json(SOURCE_STATUS_FILE, statuses)
+    print(f"抓取完成：{len(SOURCES)} 个官网来源，{len(notices)} 条有效内容。")
+    return len(notices)
 
 
 def main():

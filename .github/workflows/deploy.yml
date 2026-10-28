@@ -31,6 +31,16 @@ jobs:
           WERSS_SK: ${{ secrets.WERSS_SK }}
           WECHAT_LIMIT: "60"
         run: python fetch_wechat.py
+      - name: 恢复官网数据缓存
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/notices.json
+            data/source_status.json
+          key: official-notices-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: official-notices-v1-
+      - name: 验证官网解析与失败回退
+        run: python -m unittest discover -s tests -v
       - name: 抓取官网通知
         run: python scraper.py
       - uses: actions/setup-node@v4

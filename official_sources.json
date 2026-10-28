@@ -1,0 +1,23 @@
+[
+  {"name":"研究生院","parser":"list","pages":["https://grawww.nju.edu.cn/905/list.htm"]},
+  {"name":"计算机学院","parser":"list","pages":["https://cs.nju.edu.cn/1703/list.htm","https://cs.nju.edu.cn/1704/list.htm","https://cs.nju.edu.cn/1706/list.htm"]},
+  {"name":"软件学院","parser":"cms","pages":["https://software.nju.edu.cn/tzgg/index.html"]},
+  {"name":"人工智能学院","parser":"list","pages":["https://ai.nju.edu.cn/17810/list.htm"]},
+  {"name":"数学学院","parser":"cms","pages":["https://math.nju.edu.cn/sy/yxgg/index.html"]},
+  {"name":"物理学院","parser":"cms","pages":["https://physics.nju.edu.cn/rcpy/zxtz/index.html"]},
+  {"name":"化学学院","parser":"list","pages":["https://chem.nju.edu.cn/12641/list.htm","https://chem.nju.edu.cn/12641/list2.htm"]},
+  {"name":"文学院","parser":"list","pages":["https://chin.nju.edu.cn/"],"article_pattern":"/(?:tzgg|xyhd)/"},
+  {"name":"商学院","parser":"list","pages":["https://nubs.nju.edu.cn/8896/list.htm"]},
+  {"name":"匡亚明学院","parser":"list","pages":["https://dii.nju.edu.cn/tzgg/list.htm"]},
+  {"name":"现代工程与应用科学学院","parser":"list","pages":["https://eng.nju.edu.cn/4968/list.htm","https://eng.nju.edu.cn/4966/list.htm"]},
+  {"name":"历史学院","parser":"list","pages":["https://history.nju.edu.cn/28612/list.htm","https://history.nju.edu.cn/28501/list.htm"]},
+  {"name":"外国语学院","parser":"cms","pages":["https://sfs.nju.edu.cn/xwgg/gltz/index.html","https://sfs.nju.edu.cn/xwgg/jzyhd/index.html"]},
+  {"name":"政府管理学院","parser":"cms","pages":["https://public.nju.edu.cn/sy/tzgg/index.html"]},
+  {"name":"电子科学与工程学院","parser":"list","pages":["https://ese.nju.edu.cn/22538/list.htm","https://ese.nju.edu.cn/jzxx/list.htm"]},
+  {"name":"环境学院","parser":"cms","pages":["https://hjxy.nju.edu.cn/sy/tzgg/index.html"]},
+  {"name":"生命科学学院","parser":"list","pages":["https://life.nju.edu.cn/12936/list.htm","https://life.nju.edu.cn/xsjl/list.htm"]},
+  {"name":"新闻传播学院","parser":"list","pages":["https://jc.nju.edu.cn/xwgg/tzgg.htm","https://jc.nju.edu.cn/kxyj/xshd.htm"]},
+  {"name":"法学院","parser":"list","pages":["https://law.nju.edu.cn/index/tzgg.htm","https://law.nju.edu.cn/xsyj/xshd.htm"]},
+  {"name":"信息管理学院","parser":"list","pages":["https://im.nju.edu.cn/xwdt/ggtz/zsgg.htm"]},
+  {"name":"信息化建设管理服务中心","parser":"list","pages":["https://itsc.nju.edu.cn/"],"article_pattern":"/c21415a[0-9]+/"}
+]

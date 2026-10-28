@@ -12,7 +12,9 @@ npm run build   # 静态导出到 out/
 
 ## 部署与密钥
 
-网站地址：<https://njuknow.zhangyitian.com/>。GitHub Actions 每三小时抓取公众号与官网通知，使用 Node.js 24 构建，将 `web/out` 部署到 GitHub Pages。自定义域名使用根路径，Next.js 不设置 `/nju-notice` 的 `basePath`。若切回默认项目站地址，需配置此前缀并重新构建。
+网站地址：<https://njuknow.zhangyitian.com/>。源码仓库：<https://github.com/ZhangYitian-world/nju-know>。
+
+GitHub Actions 每三小时抓取公众号与官网通知，使用 Node.js 24 构建，将 `web/out` 部署到 GitHub Pages。自定义域名使用根路径，Next.js 不设置 `basePath`。若切回默认项目站地址 `https://zhangyitian-world.github.io/nju-know/`，需配置 `basePath: "/nju-know"` 并重新构建。
 
 WeRSS 的 `WERSS_AK` / `WERSS_SK` 在 GitHub 仓库的 Actions Secrets 中配置。本地密钥写入仓库根目录 `.env`（已忽略），不要提交任何真实密钥、登录凭证或本地交接记录。
 

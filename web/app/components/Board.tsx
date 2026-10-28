@@ -14,9 +14,9 @@ const GROUPS: { kind: Kind; icon: typeof Newspaper; categories: readonly Categor
 
 // Tailwind 只能识别完整类名，所以列数用查表
 const COLUMNS = {
-  6: "columns-2 md:columns-3 lg:columns-4 xl:columns-6",
-  4: "columns-2 md:columns-3 lg:columns-4",
-  2: "columns-1 md:columns-2",
+  6: "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6",
+  4: "grid-cols-2 md:grid-cols-3 xl:grid-cols-4",
+  2: "grid-cols-1 sm:grid-cols-2",
 } as const;
 type Cols = keyof typeof COLUMNS;
 
@@ -26,14 +26,14 @@ export default function Board({ items }: { items: Item[] }) {
   const [query, setQuery] = useState("");
   const [channel, setChannel] = useState<Item["channel"] | null>(null);
   const [filter, setFilter] = useState<Filter>({ kind: null, category: null });
-  const [cols, setCols] = useState<Cols>(6);
+  const [cols, setCols] = useState<Cols>(4);
 
   const matched = useMemo(() => {
     const q = query.trim().toLowerCase();
     return items.filter(
       (i) =>
-        (!channel || i.channel === channel) &&
-        (!q || i.title.toLowerCase().includes(q) || i.organizer.toLowerCase().includes(q)),
+        (!channel || i.channels.includes(channel)) &&
+        (!q || i.origins.some(o => o.title.toLowerCase().includes(q) || o.organizer.toLowerCase().includes(q))),
     );
   }, [items, query, channel]);
 
@@ -41,8 +41,8 @@ export default function Board({ items }: { items: Item[] }) {
     matched.filter((i) => (!kind || i.kind === kind) && (!category || i.category === category)).length;
 
   // 置顶：截止日最近、且还没过期的一条
-  const today = new Date().toISOString().slice(0, 10);
-  const pinned = items.filter((i) => i.deadline >= today).sort((a, b) => a.deadline.localeCompare(b.deadline))[0];
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const pinned = matched.filter((i) => i.deadline >= today && (!filter.kind || i.kind === filter.kind) && (!filter.category || i.category === filter.category)).sort((a, b) => a.deadline.localeCompare(b.deadline))[0];
 
   const panels = filter.category
     ? [filter.category]
@@ -53,17 +53,18 @@ export default function Board({ items }: { items: Item[] }) {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
-        <label className="flex min-w-64 flex-1 items-center gap-2 rounded-xl bg-white px-4 py-2.5 ring-1 ring-stone-300 focus-within:ring-2 focus-within:ring-[var(--nju)]">
+        <label className="flex min-w-0 basis-64 flex-1 items-center gap-2 rounded-xl bg-white px-4 py-3 ring-1 ring-stone-300 focus-within:ring-2 focus-within:ring-[var(--nju)]">
           <Search className="h-4 w-4 text-stone-400" />
           <input
             type="search"
+            aria-label="搜索校园信息"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="搜索标题、公众号、发布单位"
             className="w-full bg-transparent outline-none"
           />
         </label>
-        <div className="flex rounded-xl bg-white p-1 ring-1 ring-stone-200">
+        <div className="flex shrink-0 rounded-xl bg-white p-1 ring-1 ring-stone-200">
           {([null, "官网", "公众号"] as const).map((c) => (
             <Pill key={c ?? "all"} on={channel === c} onClick={() => setChannel(c)}>
               {c ?? "全部来源"}
@@ -73,7 +74,16 @@ export default function Board({ items }: { items: Item[] }) {
       </div>
 
       {/* 分类导航：全部 | 活动 … | 通知 … */}
-      <nav className="flex flex-wrap gap-3">
+      <div className="space-y-2 sm:hidden">
+        <nav aria-label="信息类型" className="flex gap-2">
+          <Pill on={!filter.kind} onClick={() => setFilter({ kind: null, category: null })}>全部</Pill>
+          {GROUPS.map((g) => <Pill key={g.kind} on={filter.kind === g.kind} onClick={() => setFilter({ kind: g.kind, category: null })}>{g.kind} {count(g.kind, null)}</Pill>)}
+        </nav>
+        <nav aria-label="详细分类" className="flex gap-1 overflow-x-auto pb-1 [&>button]:shrink-0">
+          {GROUPS.filter(g => !filter.kind || g.kind === filter.kind).flatMap(g => g.categories.map(c => <Pill key={c} on={filter.category === c} onClick={() => setFilter({ kind: g.kind, category: c })}>{c}</Pill>))}
+        </nav>
+      </div>
+      <nav className="hidden flex-wrap gap-3 sm:flex" aria-label="信息分类">
         <button
           onClick={() => setFilter({ kind: null, category: null })}
           className={`flex items-center gap-1.5 rounded-2xl px-4 py-3 text-sm ring-1 transition ${
@@ -122,6 +132,7 @@ export default function Board({ items }: { items: Item[] }) {
           </a>
         )}
         <select
+          aria-label="卡片列数"
           value={cols}
           onChange={(e) => setCols(Number(e.target.value) as Cols)}
           className="ml-auto rounded-xl bg-white px-3 py-2 text-sm ring-1 ring-stone-200 outline-none"
@@ -146,10 +157,9 @@ export default function Board({ items }: { items: Item[] }) {
         if (list.length === 0) return null;
         const Icon = CATEGORY_STYLE[c].icon;
         const full = filter.category !== null;
-        // 预览模式下大约能放两行，超出才显示底部渐隐
-        const overflowing = !full && list.length > cols * 2;
+        const preview = list.slice(0, cols * 2);
         return (
-          <section key={c} className="rounded-2xl bg-white p-4 ring-1 ring-stone-200">
+          <section key={c} className="board-panel" aria-label={`${c}分类`}>
             <header className="mb-3 flex items-center gap-2">
               <span className="rounded-full bg-stone-100 p-1.5">
                 <Icon className="h-4 w-4 text-stone-600" />
@@ -161,18 +171,15 @@ export default function Board({ items }: { items: Item[] }) {
                   onClick={() => setFilter({ kind: list[0].kind, category: c })}
                   className="ml-auto flex items-center gap-1 text-xs text-stone-500 hover:text-[var(--nju)]"
                 >
-                  查看更多 <ArrowRight className="h-3.5 w-3.5" />
+                  查看全部 {list.length} 条 <ArrowRight className="h-3.5 w-3.5" />
                 </button>
               )}
             </header>
-            <div className={`relative ${full ? "" : "max-h-[620px] overflow-hidden"}`}>
-              <div className={`${COLUMNS[cols]} gap-3`}>
-                {(full ? list : list.slice(0, cols * 3)).map((i) => (
+              <div className={`grid ${COLUMNS[cols]} gap-4 items-stretch`}>
+                {(full ? list : preview).map((i) => (
                   <Card key={i.id} item={i} />
                 ))}
               </div>
-              {overflowing && <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white" />}
-            </div>
           </section>
         );
       })}
@@ -186,6 +193,7 @@ function Pill({ on, onClick, children }: { on: boolean; onClick: () => void; chi
   return (
     <button
       onClick={onClick}
+      aria-pressed={on}
       className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm transition ${
         on ? "bg-[var(--nju-light)] text-[var(--nju)]" : "text-stone-600 hover:bg-stone-100"
       }`}

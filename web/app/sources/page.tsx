@@ -4,7 +4,7 @@ export default function SourcesPage() {
   const sources = loadOfficialSources();
   const statusLabels = { ok: "正常", partial: "部分栏目暂不可用", unavailable: "暂不可用" };
   const counts = new Map<string, { channel: string; n: number; latest: string }>();
-  for (const i of loadItems()) {
+  for (const i of loadItems().flatMap((item) => item.origins)) {
     const c = counts.get(i.organizer);
     if (c) {
       c.n++;

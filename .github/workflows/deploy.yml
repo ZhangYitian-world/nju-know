@@ -39,10 +39,23 @@ jobs:
             data/source_status.json
           key: official-notices-v1-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: official-notices-v1-
-      - name: 验证官网解析与失败回退
-        run: python -m unittest discover -s tests -v
+      - name: 验证抓取、模型适配与缓存回退
+        run: python -m unittest discover -s tests -v -b
       - name: 抓取官网通知
         run: python scraper.py
+      - name: 恢复分类结果缓存
+        uses: actions/cache@v4
+        with:
+          path: data/llm.json
+          key: article-classification-v3-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: article-classification-v3-
+      - name: 可选模型分类（无密钥时使用规则）
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          CLASSIFIER_PROVIDER: ${{ vars.CLASSIFIER_PROVIDER }}
+          ENRICH_MAX_ITEMS: "100"
+        run: python enrich_llm.py
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
@@ -51,6 +64,8 @@ jobs:
       - name: 安装前端依赖
         working-directory: web
         run: npm ci
+      - name: 验证分类与重复合并
+        run: node --experimental-strip-types --test tests/*.test.mjs
       - name: 构建新版静态站点
         working-directory: web
         env:

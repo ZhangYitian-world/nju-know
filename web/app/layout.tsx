@@ -18,6 +18,7 @@ const NAV = [
 export default function RootLayout({ children }: LayoutProps<"/">) {
   const updated = new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
   const latestWechat = loadItems()
+    .flatMap((item) => item.origins)
     .filter((item) => item.channel === "公众号")
     .reduce((latest, item) => (item.date > latest ? item.date : latest), "");
   return (

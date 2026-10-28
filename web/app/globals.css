@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+:root {
+  /* 南大紫 */
+  --nju: #6a1b80;
+  --nju-light: #f6edf9;
+}
+
+body {
+  background: #f7f6f4;
+  color: #1c1917;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+}

@@ -19,6 +19,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -30,12 +31,25 @@ jobs:
           WERSS_SK: ${{ secrets.WERSS_SK }}
           WECHAT_LIMIT: "60"
         run: python fetch_wechat.py
-      - name: 生成静态站点
-        run: python build_static.py
+      - name: 抓取官网通知
+        run: python scraper.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: 安装前端依赖
+        working-directory: web
+        run: npm ci
+      - name: 构建新版静态站点
+        working-directory: web
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: npm run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: docs
+          path: web/out
 
   deploy:
     needs: build

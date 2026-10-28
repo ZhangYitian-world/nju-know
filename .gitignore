@@ -2,4 +2,10 @@ __pycache__/
 *.pyc
 .DS_Store
 data/*.tmp
-.env
+.env*
+!.env.example
+*.pem
+*.key
+*.log
+# 本地交接记录包含操作环境信息，不公开到仓库。
+HANDOFF.md

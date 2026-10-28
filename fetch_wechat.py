@@ -10,7 +10,7 @@ CI 里放在 GitHub 仓库的 Secrets。
 import json
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -29,13 +29,14 @@ SECRET_KEY = os.environ.get("WERSS_SK", "")
 # 最多保留最近多少条公众号文章（0 表示不限制）
 WECHAT_LIMIT = int(os.environ.get("WECHAT_LIMIT", "60"))
 PAGE_SIZE = 100
+BEIJING = timezone(timedelta(hours=8))  # CI 跑在 UTC，统一按北京时间显示
 
 
-def _fmt_time(ts):
+def _fmt_time(ts, fmt="%Y-%m-%d"):
     if not ts:
         return ""
     try:
-        return datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d")
+        return datetime.fromtimestamp(int(ts), BEIJING).strftime(fmt)
     except (ValueError, OSError, TypeError):
         return ""
 
@@ -62,6 +63,8 @@ def fetch_via_api():
                     "title": (a.get("title") or "").strip(),
                     "url": a.get("url") or "",
                     "date": _fmt_time(a.get("publish_time")),
+                    "time": _fmt_time(a.get("publish_time"), "%H:%M"),
+                    "cover": a.get("pic_url") or "",
                     "organizer": a.get("mp_name") or "公众号",
                     "summary": (a.get("description") or "").strip(),
                 }
@@ -81,6 +84,8 @@ def fetch_via_rss():
             "title": raw["title"],
             "url": raw["url"],
             "date": raw["date"],
+            "time": "",
+            "cover": "",
             "organizer": "公众号",
             "summary": "",
         }
@@ -97,6 +102,8 @@ def to_notice(raw):
         "organizer": raw["organizer"],
         "type": scraper.classify_type(raw["title"]),
         "date": raw["date"],
+        "time": raw["time"],
+        "cover": raw["cover"],
         "deadline": "",
         "grades": grades,
         "tags": tags,

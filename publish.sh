@@ -12,8 +12,11 @@ if [ -f .env ]; then
 fi
 
 python3 fetch_wechat.py
+# 大模型分类（需在 .env 配置 DEEPSEEK_API_KEY，未配置会自动跳过）
+python3 enrich_llm.py
 
 git add data/wechat.json
+[ -f data/llm.json ] && git add data/llm.json
 if git diff --cached --quiet; then
   echo "公众号数据无变化"
 else

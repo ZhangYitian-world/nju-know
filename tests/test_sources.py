@@ -47,6 +47,12 @@ class ParserTests(unittest.TestCase):
         for url in ("https://nju.edu.cn.attacker.example/info/1/2.htm", "javascript:alert(1)", "/njdx/front/authorized/read.do?infoid=1"):
             self.assertEqual(article_url("https://cs.nju.edu.cn/", url), "")
 
+    def test_webplus_psp_article_variant(self):
+        items = self.parse("""<li><a href='https://ese.nju.edu.cn/ea/d1/c22538a846545/page.psp'
+            title='南京大学知识产权交易公示'>交易公示</a><span class='news_meta'>2026-10-21</span></li>""")
+        self.assertEqual(len(items), 1)
+        self.assertTrue(items[0]["url"].endswith("/page.psp"))
+
 
 class RecoveryTests(unittest.TestCase):
     def run_scrape(self, failed_html=None):

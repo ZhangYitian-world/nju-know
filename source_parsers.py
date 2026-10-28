@@ -7,7 +7,7 @@ from html.parser import HTMLParser
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 BEIJING = timezone(timedelta(hours=8))
-ARTICLE_PATH = re.compile(r"/(?:c\d+a\d+/pagem?\.htm|info/\d+/\d+\.htm|\d{8}/i\d+\.html)(?:$|[?#])")
+ARTICLE_PATH = re.compile(r"/(?:c\d+a\d+/pagem?\.(?:htm|psp)|info/\d+/\d+\.htm|\d{8}/i\d+\.html)(?:$|[?#])")
 
 
 def article_url(base, href):

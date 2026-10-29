@@ -58,6 +58,7 @@ def summarize(previous, states, *, started_at, finished_at, new_count=0, fetched
 
 def record_failure(data_dir, reason):
     path = Path(data_dir) / "wechat_run_status.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
     previous = read_json(path, {})
     now = datetime.now(timezone.utc).isoformat()
     health = summarize(previous, [], started_at=now, finished_at=now)

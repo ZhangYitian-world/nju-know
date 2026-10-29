@@ -14,7 +14,7 @@ const GROUPS: { kind: Kind; icon: typeof Newspaper; categories: readonly Categor
 
 // Tailwind 只能识别完整类名，所以列数用查表
 const COLUMNS = {
-  6: "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6",
+  6: "grid-cols-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6",
   4: "grid-cols-2 md:grid-cols-3 xl:grid-cols-4",
   2: "grid-cols-1 sm:grid-cols-2",
 } as const;
@@ -131,16 +131,22 @@ export default function Board({ items }: { items: Item[] }) {
             </span>
           </a>
         )}
-        <select
-          aria-label="卡片列数"
-          value={cols}
-          onChange={(e) => setCols(Number(e.target.value) as Cols)}
-          className="ml-auto rounded-xl bg-white px-3 py-2 text-sm ring-1 ring-stone-200 outline-none"
-        >
-          <option value={6}>6 列</option>
-          <option value={4}>4 列</option>
-          <option value={2}>2 列</option>
-        </select>
+        {([
+          { visibility: "sm:hidden", divisor: 2 },
+          { visibility: "hidden sm:block", divisor: 1 },
+        ] as const).map(({ visibility, divisor }) => (
+          <select
+            key={divisor}
+            aria-label="卡片列数"
+            value={cols}
+            onChange={(e) => setCols(Number(e.target.value) as Cols)}
+            className={`${visibility} ml-auto rounded-xl bg-white px-3 py-2 text-sm ring-1 ring-stone-200 outline-none`}
+          >
+            {([6, 4, 2] as const).map((value) => (
+              <option key={value} value={value}>{value / divisor} 列</option>
+            ))}
+          </select>
+        ))}
       </div>
 
       {filter.category && (

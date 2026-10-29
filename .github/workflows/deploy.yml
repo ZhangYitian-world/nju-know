@@ -55,6 +55,15 @@ jobs:
             data/wechat_source_status.json
           key: wechat-public-v1-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: wechat-public-v1-
+      - name: 恢复公开采集进度和健康记录
+        if: vars.WECHAT_PROVIDER == 'cloud'
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/wechat_checkpoint.json
+            data/wechat_run_status.json
+          key: wechat-progress-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: wechat-progress-v1-
       - name: 恢复加密的公众号授权状态
         if: vars.WECHAT_PROVIDER == 'cloud' && inputs.review_id == ''
         uses: actions/cache@v4
@@ -67,6 +76,14 @@ jobs:
         env:
           WECHAT_CLOUD_AUTH: ${{ secrets.WECHAT_CLOUD_AUTH }}
         run: python collect_wechat_cloud.py
+      - name: 保存公开采集健康摘要
+        if: always() && vars.WECHAT_PROVIDER == 'cloud' && inputs.review_id == ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: wechat-health
+          path: data/wechat_run_status.json
+          if-no-files-found: warn
+          retention-days: 7
       - name: 准备公众号数据（本机同步或远程 API/RSS）
         if: inputs.review_id == ''
         env:
@@ -148,3 +165,21 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  wechat-health:
+    name: 公众号健康检查
+    needs: [build, deploy]
+    if: always() && vars.WECHAT_PROVIDER == 'cloud' && inputs.review_id == ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: wechat-health
+          path: data
+      - name: 检查授权异常、连续失败及同步延迟
+        run: python wechat_health.py

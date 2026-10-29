@@ -3,6 +3,9 @@ __pycache__/
 .DS_Store
 data/*.tmp
 data/source_status.json
+data/wechat_checkpoint.json
+data/wechat_run_status.json
+data/classification_review.json
 .env*
 !.env.example
 *.pem

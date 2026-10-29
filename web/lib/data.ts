@@ -3,6 +3,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { ACTIVITY_CATEGORIES, NOTICE_CATEGORIES, classify, requiresNotice, type Category, type Kind } from "./classify";
 import { cleanSummary, mergeStories, type Item } from "./dedupe";
+import type { WechatHealth } from "./wechat-health";
 export type { Item } from "./dedupe";
 
 // 直接读取上级目录里 Python 爬虫产出的 JSON（构建时执行）
@@ -51,11 +52,17 @@ export function loadOfficialSources(): OfficialSource[] {
 
 export type WechatSource = {
   name: string;
-  status: "ok" | "unavailable";
+  status: "ok" | "unavailable" | "pending";
   checked_at: string;
   latest_date: string;
   item_count: number;
+  error_reason?: string;
+  last_success?: string;
 };
+
+export function loadWechatHealth(): WechatHealth | null {
+  return readJson<WechatHealth | null>("wechat_run_status.json", null);
+}
 
 export function loadWechatSources(): WechatSource[] {
   return readJson<WechatSource[]>("wechat_source_status.json", []);

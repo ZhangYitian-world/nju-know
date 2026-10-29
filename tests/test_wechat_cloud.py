@@ -59,3 +59,29 @@ class CloudAuthTests(unittest.TestCase):
             self.assertIn("未刷新来源状态", out.getvalue())
             self.assertNotIn("检查完成", out.getvalue())
             self.assertFalse((base / ".local/collector/data").exists())
+
+    def test_fresh_run_summary_accepts_honest_older_resumed_source_times(self):
+        import collect_wechat_cloud as cloud
+        from datetime import datetime, timezone
+        with tempfile.TemporaryDirectory() as folder:
+            base = Path(folder)
+            (base / "data").mkdir()
+            (base / "data/wechat_source_status.json").write_text(json.dumps([{"name": "fixture", "status": "ok", "checked_at": "2000-01-01T00:00:00+08:00", "resumed": True}]))
+            def run(*_args, **_kwargs):
+                (base / "data/wechat_run_status.json").write_text(json.dumps({"checked_at": datetime.now(timezone.utc).isoformat(), "status": "ok", "resumed_sources": 1}))
+                return SimpleNamespace(returncode=0)
+            out = io.StringIO()
+            with patch.multiple(cloud, BASE=base, COLLECTOR=base / ".local/collector", AUTH_CACHE=base / ".local/auth.enc"), patch.dict(cloud.os.environ, {"WECHAT_CLOUD_AUTH": json.dumps(self.bundle()), "GITHUB_ACTIONS": "false"}), patch.object(cloud.subprocess, "run", side_effect=run), redirect_stdout(out):
+                cloud.main()
+            self.assertIn("检查完成", out.getvalue())
+            self.assertIn("已成功来源 1", out.getvalue())
+            self.assertFalse((base / ".local/collector/data").exists())
+
+    def test_missing_cloud_secret_records_setup_problem_without_expiry_claim(self):
+        import collect_wechat_cloud as cloud
+        with tempfile.TemporaryDirectory() as folder:
+            base = Path(folder)
+            with patch.object(cloud, "BASE", base), patch.dict(cloud.os.environ, {"WECHAT_CLOUD_AUTH": ""}), redirect_stdout(io.StringIO()):
+                cloud.main()
+            health = json.loads((base / "data/wechat_run_status.json").read_text())
+            self.assertEqual(health["status"], "auth_missing")

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CalendarDays, Database, Rss } from "lucide-react";
-import { loadItems } from "@/lib/data";
+import { loadItems, loadWechatHealth } from "@/lib/data";
+import SyncStatus from "./components/SyncStatus";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -48,10 +49,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </nav>
         </header>
         <main id="main" className="mx-auto w-full max-w-[1680px] flex-1 px-6 py-4">
-          <p className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+          <div className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+            <p>
             信息请以原发布单位为准。
             {latestWechat && ` 公众号收录文章的最新发布日期：${latestWechat}。`}
-          </p>
+            </p>
+            <SyncStatus initial={loadWechatHealth()} />
+          </div>
           {children}
         </main>
         <footer className="px-6 py-8 text-center text-xs leading-6 text-stone-500">

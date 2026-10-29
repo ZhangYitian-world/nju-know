@@ -7,6 +7,7 @@ import shutil
 import time
 from datetime import datetime
 from pathlib import Path
+from wechat_health import read_json, record_failure
 
 BASE = Path(__file__).resolve().parent
 COLLECTOR = BASE / ".local/wechat-collector"
@@ -60,6 +61,7 @@ def main():
     raw = os.environ.get("WECHAT_CLOUD_AUTH", "")
     if not raw:
         print("未配置云端微信读书授权，保留已有公众号数据。")
+        record_failure(BASE / "data", "auth_missing")
         return
     try:
         bundle = json.loads(raw)
@@ -67,6 +69,7 @@ def main():
         mask_values(bundle, accounts)
     except Exception as error:
         print(f"云端授权准备未完成（{type(error).__name__}），保留已有公众号数据。")
+        record_failure(BASE / "data", "collector_error")
         return
     auth_file = COLLECTOR / "data/account_pool.json"
     auth_file.parent.mkdir(parents=True, exist_ok=True)
@@ -82,16 +85,20 @@ def main():
                                 env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=480)
         if result.returncode:
             print("云端采集未正常结束，保留上次可用数据。")
+            record_failure(BASE / "data", "collector_error")
         else:
-            path = BASE / "data/wechat_source_status.json"
-            states = json.loads(path.read_text()) if path.exists() else []
-            fresh = states and all(datetime.fromisoformat(s["checked_at"]).timestamp() >= started - 2 for s in states)
+            states = read_json(BASE / "data/wechat_source_status.json", [])
+            health = read_json(BASE / "data/wechat_run_status.json", {})
+            fresh = health and datetime.fromisoformat(health["checked_at"]).timestamp() >= started - 2
             if fresh:
                 print(f"云端公众号检查完成：{len(states)} 个来源，{sum(s.get('status') == 'ok' for s in states)} 个正常。")
+                print(f"本轮新收录 {health.get('new_count', 0)} 条，复用本周期已成功来源 {health.get('resumed_sources', 0)} 个；健康状态 {health.get('status', 'unknown')}。")
             else:
                 print("云端采集未刷新来源状态，继续使用已有数据。")
+                record_failure(BASE / "data", "collector_error")
     except Exception as error:
         print(f"云端采集未完成（{type(error).__name__}），保留上次可用数据。")
+        record_failure(BASE / "data", "collector_error")
     finally:
         # Persist only authenticated ciphertext; never cache this directory.
         try:

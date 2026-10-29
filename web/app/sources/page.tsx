@@ -1,8 +1,10 @@
-import { loadItems, loadOfficialSources, loadWechatSources } from "@/lib/data";
+import { loadItems, loadOfficialSources, loadWechatSources, loadWechatHealth } from "@/lib/data";
 
 export default function SourcesPage() {
   const sources = loadOfficialSources();
   const wechatSources = loadWechatSources();
+  const health = loadWechatHealth();
+  const wechatLabels: Record<string, string> = { auth_required: "登录需重新授权", verification_required: "需要微信验证", rate_limited: "请求受限，等待重试", network: "网络暂不可用", empty_result: "暂未取得文章", not_checked: "本轮待补采", collector_error: "采集暂不可用" };
   const statusLabels = { ok: "正常", partial: "部分栏目暂不可用", unavailable: "暂不可用" };
   const counts = new Map<string, { channel: string; n: number; latest: string }>();
   for (const i of loadItems().flatMap((item) => item.origins)) {
@@ -62,6 +64,8 @@ export default function SourcesPage() {
           <h2 className="mb-2 text-base font-semibold">公众号来源与同步状态</h2>
           <p className="mb-3 text-xs leading-6 text-stone-500">
             下表为各公众号最近一次采集结果，文章日期为发布日期。采集端离线或来源暂不可用时保留已有内容；页面重新构建不代表来源重新采集。
+            {health && ` 最近一轮新收录 ${health.new_count} 条；同一周期已成功检查的 ${health.resumed_sources} 个来源直接复用，未完成来源会在后续运行补采。`}
+            登录失效与网络故障分别记录；超过 8 小时未成功采集时，页面会自动显示同步延迟。
           </p>
           <div className="overflow-x-auto rounded-xl ring-1 ring-stone-200">
             <table className="w-full min-w-[640px] bg-white text-left text-sm">
@@ -78,7 +82,7 @@ export default function SourcesPage() {
                 {wechatSources.map((source) => (
                   <tr key={source.name} className="border-t border-stone-100">
                     <td className="px-3 py-2">{source.name}</td>
-                    <td className={`px-3 py-2 ${source.status === "ok" ? "text-emerald-700" : "text-amber-700"}`}>{source.status === "ok" ? "正常" : "暂不可用"}</td>
+                    <td className={`px-3 py-2 ${source.status === "ok" ? "text-emerald-700" : "text-amber-700"}`}>{source.status === "ok" ? "正常" : wechatLabels[source.error_reason || ""] || "暂不可用"}</td>
                     <td className="px-3 py-2">{source.item_count}</td>
                     <td className="px-3 py-2 text-stone-500">{source.latest_date || "—"}</td>
                     <td className="px-3 py-2 text-stone-500">{source.checked_at.slice(0, 16).replace("T", " ")}</td>

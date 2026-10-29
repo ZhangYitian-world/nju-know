@@ -4,9 +4,11 @@
 
 把分散在南京大学各院系官网与公众号的校园信息，整理到一个可搜索、可筛选、可订阅的页面。
 
-**[访问网站](https://njuknow.zhangyitian.com/)** · [活动日历](https://njuknow.zhangyitian.com/calendar/) · [信息源与更新状态](https://njuknow.zhangyitian.com/sources/) · [RSS](https://njuknow.zhangyitian.com/rss.xml)
+**在线访问：[njuknow.zhangyitian.com](https://njuknow.zhangyitian.com/)**
 
-![不南知道的等高卡片、分类筛选与文章摘要](docs/assets/nju-know-preview.png)
+[活动日历](https://njuknow.zhangyitian.com/calendar/) · [信息源与更新状态](https://njuknow.zhangyitian.com/sources/) · [RSS](https://njuknow.zhangyitian.com/rss.xml)
+
+[![不南知道的等高卡片、分类筛选与文章摘要](docs/assets/nju-know-preview.png)](https://njuknow.zhangyitian.com/)
 
 ## 可以做什么
 
@@ -25,7 +27,7 @@
 
 截至 2026-10-29，官网抓取和 DeepSeek 分类／摘要已通过实际云端运行与部署验证。新公众号通道已取得 10 月 29 日的文章，并支持云端定时采集；旧来源保留为可选适配。采集依赖有效的微信读书授权，到期或受限时可能需要重新扫码，具体配置见[公众号采集说明](docs/wechat-local.md)。
 
-本站为试运行的校园信息聚合项目，信息、截止时间与报名要求以原发布单位为准。模型读取公开标题、发布单位、日期和已有简介，并非始终读取文章全文；分类与摘要可能有误。去重采取保守策略，标题截断或大幅改写的转载仍可能重复出现。
+本站为校园信息聚合项目，信息、截止时间与报名要求以原发布单位为准。模型读取公开标题、发布单位、日期和已有简介，并非始终读取文章全文；分类与摘要可能有误。去重采取保守策略，标题截断或大幅改写的转载仍可能重复出现。
 
 ## 本地运行
 
@@ -69,6 +71,10 @@ python3 scraper.py
 - 没有模型密钥：使用关键词规则，官网抓取与网站部署仍可运行。
 
 配置后可在 **Actions → Build and Deploy → Run workflow** 手动更新，或等待下一轮定时任务。
+
+需要重新检查已有分类时，可在手动运行中填写 `review_id`（例如 `review-2026-10-29`）。该模式使用 DeepSeek 复核当前缓存的公开文章，优先处理原先回退规则的条目，并记录实际请求次数、Token 用量与分类变化；不额外抓取公众号。每轮最多 800 条、600 秒，同一批次标识可续跑剩余条目。普通定时更新继续复用结果，不会每轮全量复核。
+
+运行结束后可下载 `classification-review` 公开报告。模型复核不等于人工确认；低置信度、响应缺项或请求失败的条目会分别保留回退或待处理状态。
 
 ### 本地使用
 

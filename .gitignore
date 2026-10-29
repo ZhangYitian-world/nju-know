@@ -10,3 +10,5 @@ data/source_status.json
 *.log
 # 本地交接记录包含操作环境信息，不公开到仓库。
 HANDOFF.md
+# 本机公众号采集器、虚拟环境及微信读书登录凭据。
+.local/

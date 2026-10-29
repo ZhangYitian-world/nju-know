@@ -25,8 +25,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
-      - name: 抓取公众号（有密钥走 API，无则退回 RSS）
+      - name: 准备公众号数据（本机同步或远程 API/RSS）
         env:
+          WECHAT_PROVIDER: ${{ vars.WECHAT_PROVIDER }}
           WERSS_AK: ${{ secrets.WERSS_AK }}
           WERSS_SK: ${{ secrets.WERSS_SK }}
           WECHAT_LIMIT: "60"

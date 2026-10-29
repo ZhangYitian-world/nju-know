@@ -11,12 +11,22 @@ if [ -f .env ]; then
   set +a
 fi
 
-python3 fetch_wechat.py
+if [ "${WECHAT_PROVIDER:-werss}" = "local" ]; then
+  COLLECTOR_PYTHON="${WECHAT_COLLECTOR_PYTHON:-.local/wechat-collector/.venv/bin/python}"
+  if [ -x "$COLLECTOR_PYTHON" ]; then
+    "$COLLECTOR_PYTHON" collect_wechat_local.py
+  else
+    echo "本机公众号采集环境不可用，保留已有数据"
+  fi
+else
+  python3 fetch_wechat.py
+fi
 # 可选模型：.env 配置 DEEPSEEK_API_KEY / TYPESAFE_API_KEY；两者齐全时协作。
 # GitHub Secrets 不会同步回本地；均未配置时跳过并继续使用规则。
 python3 enrich_llm.py
 
 git add data/wechat.json
+[ -f data/wechat_source_status.json ] && git add data/wechat_source_status.json
 [ -f data/llm.json ] && git add data/llm.json
 if git diff --cached --quiet; then
   echo "公众号数据无变化"

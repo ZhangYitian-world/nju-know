@@ -83,6 +83,32 @@ class CacheTests(unittest.TestCase):
         self.assertFalse(enrich.current(entry, ARTICLE, "jev", "jev-1.14.0"))
         self.assertFalse(enrich.current({**entry, "category": "invalid"}, ARTICLE, "deepseek", "deepseek-flash"))
 
+    def test_review_rechecks_cached_articles_corrects_labels_and_resumes_without_repeat_calls(self):
+        with tempfile.TemporaryDirectory() as folder:
+            self.run_main(folder)
+            with patch.dict(enrich.os.environ, {"ENRICH_REVIEW_ID": "review-test"}):
+                cache, calls = self.run_main(folder, [{**CLASSIFICATION, "category": "科研"}])
+                self.assertEqual(calls, 1)
+                self.assertEqual(cache[ARTICLE["url"]]["review_id"], "review-test")
+                report = json.loads((Path(folder) / "classification_review.json").read_text())
+                self.assertEqual(report["reviewed_articles"], 1)
+                self.assertEqual(report["changed_classifications"], 1)
+                self.assertEqual(report["pending_articles"], 0)
+                _, calls = self.run_main(folder)
+                self.assertEqual(calls, 0)
+            _, calls = self.run_main(folder)
+            self.assertEqual(calls, 0)
+
+    def test_review_missing_response_stays_pending_and_preserves_old_accepted_result(self):
+        with tempfile.TemporaryDirectory() as folder:
+            original, _ = self.run_main(folder)
+            with patch.dict(enrich.os.environ, {"ENRICH_REVIEW_ID": "review-missing"}):
+                cache, calls = self.run_main(folder, [])
+            self.assertEqual(calls, 1)
+            self.assertEqual(cache, original)
+            report = json.loads((Path(folder) / "classification_review.json").read_text())
+            self.assertEqual(report["pending_articles"], 1)
+
 
 class HybridTests(unittest.TestCase):
     def test_jev_selects_category_deepseek_supplies_summary(self):

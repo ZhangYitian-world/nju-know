@@ -46,13 +46,19 @@ INSTRUCTIONS = """你在分类南京大学校园信息。文章的标题和简�
 教师、准聘长聘、研究系列、博士后招聘属于通知/院系，不属于学生活动/就业。
 有“招聘”不必然是学生活动；招生、奖学金公示不属于社团招新。
 发布日期不等于活动日期，不得只因为发布时间较早就认定招聘已经结束。缺少信息时保持不确定，不要编造。
+面向毕业生的企业校园招聘、校招、招聘宣讲一律优先考虑活动/就业，不能因企业行业标签误归生活。
+例如“中国证券登记结算有限责任公司2027年度校园招聘公告”是活动/就业；
+“商学院研究系列人员招聘公告”是通知/院系；“破冰活动顺利举办”是通知/校园。
+提供的 previous_classification 是待复核的旧判断，可能有错，应独立检查。
 """
 PROMPT = INSTRUCTIONS + """
 类别：活动可选 文体/社团/讲座/学习/就业/留学；通知可选 校园/科研/院系/生活/学业/奖学金/服务。
 signup 表示是否明确需要报名、申报或预约。summary 为不超过40字的事实摘要，信息不足时为空，禁止编造时间地点。
 confidence 为0至1的自评置信程度（不是已校准概率）。只输出 JSON：
 {"results":[{"i":0,"kind":"通知","category":"院系","signup":false,"summary":"","confidence":0.9}]}
+对输入的每个 i 都返回一项，i 必须原样保留；不确定也返回一项并降低 confidence，不能省略文章。
 """
+API_STATS = {"requests": 0, "prompt_tokens": 0, "completion_tokens": 0}
 
 
 def load_json(path, default):
@@ -100,7 +106,10 @@ def post_json(url, key, body):
 
 
 def article_state(notice):
-    return {"title": notice["title"], "publisher": notice.get("organizer") or notice.get("source", ""), "published": notice.get("date", ""), "excerpt": re.sub(r"\s+", " ", notice.get("summary") or "").strip()[:500]}
+    state = {"title": notice["title"], "publisher": notice.get("organizer") or notice.get("source", ""), "published": notice.get("date", ""), "excerpt": re.sub(r"\s+", " ", notice.get("summary") or "").strip()[:500]}
+    if "previous_classification" in notice:
+        state["previous_classification"] = notice["previous_classification"]
+    return state
 
 
 def call_deepseek(batch, key, model, url):
@@ -108,6 +117,12 @@ def call_deepseek(batch, key, model, url):
         "model": model, "messages": [{"role": "system", "content": PROMPT}, {"role": "user", "content": json.dumps([{ "i": i, **article_state(n)} for i, n in enumerate(batch)], ensure_ascii=False)}],
         "response_format": {"type": "json_object"}, "thinking": {"type": "disabled"}, "max_tokens": 2400,
     })
+    API_STATS["requests"] += 1
+    usage = data.get("usage") or {}
+    for field in ("prompt_tokens", "completion_tokens"):
+        value = usage.get(field, 0)
+        if type(value) is int and value >= 0:
+            API_STATS[field] += value
     content = data["choices"][0]["message"]["content"]
     results = json.loads(content).get("results", [])
     return results if isinstance(results, list) else []
@@ -201,6 +216,7 @@ def current(entry, notice, provider, model):
 
 
 def main():
+    API_STATS.update(requests=0, prompt_tokens=0, completion_tokens=0)
     provider, key, model, url = provider_config()
     if not key:
         print("未配置分类模型密钥，使用关键词规则；可配置 TYPESAFE_API_KEY（Jev）或 DEEPSEEK_API_KEY。")
@@ -211,25 +227,44 @@ def main():
     cache = load_json(CACHE_FILE, {})
     if not isinstance(cache, dict):
         cache = {}
+    cache = {link: entry for link, entry in cache.items() if isinstance(entry, dict)}
     notices = {}
     for file in SOURCE_FILES:
         for notice in load_json(file, []):
             link = notice.get("url", "")
             if link and link not in notices:
                 notices[link] = notice
-    pending = [notice for link, notice in notices.items() if not current(cache.get(link), notice, provider, model)]
+    review_id = os.environ.get("ENRICH_REVIEW_ID", "").strip()
+    pending = [notice for link, notice in notices.items()
+               if not current(cache.get(link), notice, provider, model)
+               or (review_id and cache.get(link, {}).get("review_id") != review_id)]
+    report_file = DATA_DIR / "classification_review.json"
+    report = load_json(report_file, {}) if review_id else {}
+    if not isinstance(report, dict) or report.get("review_id") != review_id:
+        report = {"review_id": review_id, "results": {}}
+    if review_id:
+        # Review rule fallbacks before already accepted model decisions.
+        pending.sort(key=lambda n: cache.get(n["url"], {}).get("status") == "accepted")
     pending_total = len(pending)
     limit = max(0, int(os.environ.get("ENRICH_MAX_ITEMS", "100")))
     pending = pending[:limit]
     batch_size = 8
+    max_seconds = min(900, max(1, int(os.environ.get("ENRICH_MAX_SECONDS", "120"))))
     started, accepted, abstained, failures = time.monotonic(), 0, 0, 0
     print(f"分类提供方 {provider}，模型 {model}；本次最多处理 {len(pending)} 条，缓存 {len(cache)} 条。")
     print(f"当前唯一文章 {len(notices)} 条，待处理 {pending_total} 条；未变化的缓存不再调用模型。")
+    if review_id:
+        print(f"一次性分类复核：{review_id}；优先检查原先回退规则的条目。")
     for start in range(0, len(pending), batch_size):
-        if time.monotonic() - started > 120:
+        if time.monotonic() - started > max_seconds:
             print("已到本轮分类时间上限，余下条目下次处理。")
             break
         batch = pending[start:start + batch_size]
+        if review_id:
+            batch = [{**n, "previous_classification": {
+                field: cache.get(n["url"], {}).get(field)
+                for field in ("status", "kind", "category")
+            }} for n in batch]
         try:
             results = {"jev": call_jev, "deepseek": call_deepseek, "hybrid": call_hybrid}[provider](batch, key, model, url)
         except Exception as error:
@@ -261,12 +296,34 @@ def main():
             else:
                 abstained += 1
             cache[notice["url"]] = entry
+            if review_id:
+                entry["review_id"] = review_id
+                previous = notice["previous_classification"]
+                report["results"][notice["url"]] = {
+                    "title": notice["title"], "previous": previous,
+                    "reviewed": {field: entry.get(field) for field in ("status", "kind", "category", "confidence")},
+                    "changed": previous.get("status") == "accepted" and status == "accepted"
+                    and (previous.get("kind"), previous.get("category")) != (entry["kind"], entry["category"]),
+                }
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         scraper.write_json(CACHE_FILE, cache)
+        if review_id:
+            report.update(checked_at=datetime.now(timezone.utc).isoformat(), total_articles=len(notices))
+            scraper.write_json(report_file, report)
     print(f"分类完成：接受 {accepted} 条，低置信度 {abstained} 条继续使用规则。")
     covered = [cache[link] for link, notice in notices.items() if current(cache.get(link), notice, provider, model)]
     total_accepted = sum(entry["status"] == "accepted" for entry in covered)
     print(f"缓存覆盖：接受 {total_accepted} 条，低置信度 {len(covered) - total_accepted} 条，待处理 {len(notices) - len(covered)} 条。")
+    print(f"本轮 DeepSeek 成功响应 {API_STATS['requests']} 次，输入 {API_STATS['prompt_tokens']} tokens，输出 {API_STATS['completion_tokens']} tokens。")
+    if review_id:
+        reviewed = sum(current(cache.get(link), n, provider, model) and cache[link].get("review_id") == review_id for link, n in notices.items())
+        usage = report.setdefault("api_usage", {field: 0 for field in API_STATS})
+        for field, value in API_STATS.items():
+            usage[field] += value
+        report.update(reviewed_articles=reviewed, pending_articles=len(notices) - reviewed,
+                      changed_classifications=sum(r["changed"] for r in report["results"].values()))
+        scraper.write_json(report_file, report)
+        print(f"复核覆盖：{reviewed}/{len(notices)}；已接受分类中改判 {sum(r['changed'] for r in report['results'].values())} 条。")
 
 
 if __name__ == "__main__":

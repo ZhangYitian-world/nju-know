@@ -49,7 +49,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </header>
         <main id="main" className="mx-auto w-full max-w-[1680px] flex-1 px-6 py-4">
           <p className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-            本站试运行中，信息请以原发布单位为准。
+            信息请以原发布单位为准。
             {latestWechat && ` 公众号收录文章的最新发布日期：${latestWechat}。`}
           </p>
           {children}

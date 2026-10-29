@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 from collect_wechat_local import CollectorObserver, collect, BEIJING, article_notice
-from wechat_health import summarize, needs_alert
+from wechat_health import summarize, needs_alert, cooldown_state
 
 NOW = "2026-10-29T12:00:00+00:00"
 OLD = "2026-10-29T00:00:00+00:00"
@@ -35,6 +35,20 @@ class HealthTests(unittest.TestCase):
         h = summarize({"consecutive_failures": 4}, [{"name": "fixture", "status": "ok", "checked_at": NOW}], started_at=NOW, finished_at=NOW, new_count=2)
         self.assertEqual(h["consecutive_failures"], 0)
         self.assertEqual(h["new_count"], 2)
+
+    def test_legacy_source_success_survives_the_first_failed_run(self):
+        h = summarize({}, [{"name": "fixture", "status": "unavailable", "last_success": OLD, "error_reason": "rate_limited"}], started_at=NOW, finished_at=NOW)
+        self.assertEqual(h["last_success_at"], OLD)
+        self.assertGreater(datetime.fromisoformat(h["retry_after"]).timestamp(), datetime.fromisoformat(NOW).timestamp())
+
+    def test_cooldown_does_not_invent_a_success_or_accumulate_failures_without_requests(self):
+        now = datetime.fromisoformat(NOW).timestamp()
+        previous = {"status": "rate_limited", "checked_at": NOW, "consecutive_failures": 1}
+        state = cooldown_state(previous, [{"status": "unavailable", "last_success": OLD}], now + 60)
+        self.assertEqual(state["last_success_at"], OLD)
+        self.assertEqual(state["consecutive_failures"], 1)
+        self.assertTrue(state["cooldown_skipped"])
+        self.assertIsNone(cooldown_state(state, [], now + 1900))
 
 
 class ObserverTests(unittest.TestCase):
@@ -85,3 +99,13 @@ class CheckpointTests(unittest.TestCase):
         self.assertEqual(rows, [old])
         self.assertEqual(states[0]["status"], "pending")
         self.assertEqual(received, 0)
+
+    def test_repeated_rate_limits_pause_remaining_sources_instead_of_hammering_them(self):
+        sources = [{"name": str(i), "fakeid": str(i)} for i in range(5)]
+        api = Mock(return_value=([], 0, False))
+        observer = SimpleNamespace(reset=Mock(), reason="rate_limited")
+        _, states, _ = collect(sources, api, [], delay=0, observer=observer)
+        self.assertEqual(api.call_count, 2)
+        self.assertEqual(len(states), 5)
+        self.assertEqual(states[-1]["status"], "pending")
+        self.assertEqual(states[-1]["error_reason"], "rate_limited")

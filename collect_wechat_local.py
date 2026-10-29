@@ -17,7 +17,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import scraper
 from fetch_wechat import to_notice
-from wechat_health import read_json, summarize
+from wechat_health import cooldown_state, read_json, summarize
 
 BASE = Path(__file__).resolve().parent
 BEIJING = timezone(timedelta(hours=8))
@@ -59,6 +59,18 @@ def collect(sources, fetch_page, existing, per_source=8, delay=2, *, previous_st
     incoming, states = [], []
     prior = {s["name"]: s for s in (previous_states or [])}
     started = time.monotonic()
+    rate_failures = 0
+
+    def deferred(start, reason):
+        for pending in sources[start:]:
+            name = pending["name"]
+            if completed and name in completed:
+                states.append({**completed[name], "resumed": True})
+                continue
+            old = prior.get(name, {})
+            states.append({"name": name, "status": "pending", "error_reason": reason,
+                           "checked_at": old.get("checked_at", ""), "last_success": old.get("last_success", old.get("checked_at", "") if old.get("status") == "ok" else ""),
+                           "item_count": 0, "latest_date": old.get("latest_date", "")})
     for index, source in enumerate(sources):
         name = source["name"]
         checked = datetime.now(BEIJING).isoformat(timespec="seconds")
@@ -69,11 +81,7 @@ def collect(sources, fetch_page, existing, per_source=8, delay=2, *, previous_st
             states.append({**completed[name], "resumed": True})
             continue
         if max_seconds is not None and time.monotonic() - started >= max_seconds:
-            for pending in sources[index:]:
-                old = prior.get(pending["name"], {})
-                states.append({"name": pending["name"], "status": "pending", "error_reason": "not_checked",
-                               "checked_at": old.get("checked_at", ""), "last_success": old.get("last_success", old.get("checked_at", "") if old.get("status") == "ok" else ""),
-                               "item_count": 0, "latest_date": old.get("latest_date", "")})
+            deferred(index, "not_checked")
             break
         if observer:
             observer.reset()
@@ -98,6 +106,12 @@ def collect(sources, fetch_page, existing, per_source=8, delay=2, *, previous_st
         states.append(state)
         if on_progress:
             on_progress(merge_notices(existing, incoming) if incoming else existing, states)
+        rate_failures = rate_failures + 1 if state.get("error_reason") == "rate_limited" else 0
+        reason = state.get("error_reason")
+        if reason in ("auth_required", "verification_required") or rate_failures >= 2:
+            deferred(index + 1, reason)
+            print("本轮已暂停后续请求并保存进度，等待后续周期补采。", flush=True)
+            break
         if index + 1 < len(sources) and delay:
             time.sleep(delay)
     rows = merge_notices(existing, incoming) if incoming else existing
@@ -160,6 +174,11 @@ def main():
     health_path = args.output_dir / "wechat_run_status.json"
     previous = read_json(health_path, {})
     previous_states = read_json(args.output_dir / "wechat_source_status.json", [])
+    cooldown = cooldown_state(previous, previous_states, time.time())
+    if cooldown:
+        scraper.write_json(health_path, cooldown)
+        print("当前仍在频率限制冷却期，本次不发送采集请求；已有内容与成功时间保留。")
+        return
     checkpoint_path = args.output_dir / "wechat_checkpoint.json"
     checkpoint = read_json(checkpoint_path, {})
     cycle_id = str(int(time.time()) // (3 * 3600))

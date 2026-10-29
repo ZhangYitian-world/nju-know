@@ -1,6 +1,6 @@
 """Public, credential-free collection progress and health summaries."""
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 import scraper
@@ -40,9 +40,10 @@ def summarize(previous, states, *, started_at, finished_at, new_count=0, fetched
     else:
         status = "unavailable"
     successes = [previous.get("last_success_at", "")]
+    successes += [s.get("last_success", "") for s in states]
     successes += [s.get("last_success", s.get("checked_at", "")) for s in good]
     last_success = max(successes, key=timestamp)
-    return {
+    health = {
         "version": 1, "status": status, "started_at": started_at, "checked_at": finished_at,
         "last_success_at": last_success,
         "last_full_success_at": max((s.get("checked_at", "") for s in good), key=timestamp)
@@ -54,6 +55,23 @@ def summarize(previous, states, *, started_at, finished_at, new_count=0, fetched
         "consecutive_failures": 0 if good else int(previous.get("consecutive_failures", 0)) + 1,
         "interval_hours": 3,
     }
+    if "rate_limited" in reasons:
+        health["retry_after"] = (datetime.fromisoformat(finished_at) + timedelta(minutes=30)).isoformat()
+    return health
+
+
+def cooldown_state(previous, states, now):
+    """A deployment during an existing cooldown must not send more requests or count as another failure."""
+    retry = timestamp(previous.get("retry_after"))
+    if not retry and previous.get("status") == "rate_limited":
+        retry = timestamp(previous.get("checked_at")) + 1800
+    if not retry or now >= retry:
+        return None
+    candidates = [previous.get("last_success_at", "")] + [s.get("last_success", s.get("checked_at", "") if s.get("status") == "ok" else "") for s in states]
+    return {**previous, "last_success_at": max(candidates, key=timestamp),
+            "checked_at": datetime.fromtimestamp(now, timezone.utc).isoformat(),
+            "retry_after": datetime.fromtimestamp(retry, timezone.utc).isoformat(),
+            "new_count": 0, "fetched_count": 0, "cooldown_skipped": True}
 
 
 def record_failure(data_dir, reason):

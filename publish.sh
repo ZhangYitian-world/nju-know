@@ -12,7 +12,8 @@ if [ -f .env ]; then
 fi
 
 python3 fetch_wechat.py
-# 大模型分类（需在 .env 配置 DEEPSEEK_API_KEY，未配置会自动跳过）
+# 可选模型：.env 配置 DEEPSEEK_API_KEY / TYPESAFE_API_KEY；两者齐全时协作。
+# GitHub Secrets 不会同步回本地；均未配置时跳过并继续使用规则。
 python3 enrich_llm.py
 
 git add data/wechat.json

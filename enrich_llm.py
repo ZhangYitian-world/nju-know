@@ -211,18 +211,20 @@ def main():
     cache = load_json(CACHE_FILE, {})
     if not isinstance(cache, dict):
         cache = {}
-    pending, seen = [], set()
+    notices = {}
     for file in SOURCE_FILES:
         for notice in load_json(file, []):
             link = notice.get("url", "")
-            if link and link not in seen and not current(cache.get(link), notice, provider, model):
-                seen.add(link)
-                pending.append(notice)
+            if link and link not in notices:
+                notices[link] = notice
+    pending = [notice for link, notice in notices.items() if not current(cache.get(link), notice, provider, model)]
+    pending_total = len(pending)
     limit = max(0, int(os.environ.get("ENRICH_MAX_ITEMS", "100")))
     pending = pending[:limit]
     batch_size = 8
     started, accepted, abstained, failures = time.monotonic(), 0, 0, 0
     print(f"分类提供方 {provider}，模型 {model}；本次最多处理 {len(pending)} 条，缓存 {len(cache)} 条。")
+    print(f"当前唯一文章 {len(notices)} 条，待处理 {pending_total} 条；未变化的缓存不再调用模型。")
     for start in range(0, len(pending), batch_size):
         if time.monotonic() - started > 120:
             print("已到本轮分类时间上限，余下条目下次处理。")
@@ -232,7 +234,8 @@ def main():
             results = {"jev": call_jev, "deepseek": call_deepseek, "hybrid": call_hybrid}[provider](batch, key, model, url)
         except Exception as error:
             # No request bodies, headers, keys or service error bodies in logs.
-            print(f"分类请求失败（{type(error).__name__}），保留缓存并使用规则。")
+            status = f"，HTTP {error.code}" if isinstance(error, HTTPError) else ""
+            print(f"分类请求失败（{type(error).__name__}{status}），保留缓存并使用规则。")
             failures += 1
             if failures >= 2 or getattr(error, "code", 0) in (401, 402, 403):
                 break
@@ -261,6 +264,9 @@ def main():
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         scraper.write_json(CACHE_FILE, cache)
     print(f"分类完成：接受 {accepted} 条，低置信度 {abstained} 条继续使用规则。")
+    covered = [cache[link] for link, notice in notices.items() if current(cache.get(link), notice, provider, model)]
+    total_accepted = sum(entry["status"] == "accepted" for entry in covered)
+    print(f"缓存覆盖：接受 {total_accepted} 条，低置信度 {len(covered) - total_accepted} 条，待处理 {len(notices) - len(covered)} 条。")
 
 
 if __name__ == "__main__":

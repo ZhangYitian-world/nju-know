@@ -38,6 +38,8 @@ jobs:
           WECHAT_CLOUD_AUTH: ${{ secrets.WECHAT_CLOUD_AUTH }}
         run: |
           cp wechat_candidates.json wechat_sources.json
+          # Only remove public fixtures from this disposable runner checkout.
+          rm -f data/wechat_health_seed.json data/wechat_source_status.json data/wechat.json
           python collect_wechat_cloud.py
       - name: 保存公开验证结果
         uses: actions/upload-artifact@v4

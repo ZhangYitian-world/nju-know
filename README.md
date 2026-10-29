@@ -6,7 +6,7 @@
 
 **[访问网站](https://njuknow.zhangyitian.com/)** · [活动日历](https://njuknow.zhangyitian.com/calendar/) · [信息源与更新状态](https://njuknow.zhangyitian.com/sources/) · [RSS](https://njuknow.zhangyitian.com/rss.xml)
 
-![NJU Know 的等高卡片、分类筛选与文章摘要](docs/assets/nju-know-preview.png)
+![不南知道的等高卡片、分类筛选与文章摘要](docs/assets/nju-know-preview.png)
 
 ## 可以做什么
 
@@ -29,7 +29,7 @@
 
 ## 本地运行
 
-需要 Python 3.11+、Node.js 24 和 npm。Python 抓取及分类脚本使用标准库，不需要额外安装 Python 包。
+需要 Python 3.11+、Node.js 24 和 npm。官网抓取及模型分类脚本使用标准库；公众号采集另需安装 requirements-wechat.txt，云端授权加密还使用 cryptography，详见采集说明。
 
 ```bash
 git clone https://github.com/ZhangYitian-world/nju-know.git
@@ -155,4 +155,4 @@ web/                        Next.js / React / TypeScript 前端
 
 校园通知与公众号文章的内容版权归原发布单位和作者所有。本站展示来源并保留原文链接，具体信息请以原文为准。
 
-本机公众号通道使用 [wechatAutoRSSTool](https://github.com/x554960766/wechatAutoRSSTool) 的采集模块，感谢该项目作者；独立安装目录中保留其原始许可证。
+公众号采集通道使用 [wechatAutoRSSTool](https://github.com/x554960766/wechatAutoRSSTool) 的采集模块，感谢该项目作者；独立安装目录中保留其原始许可证。

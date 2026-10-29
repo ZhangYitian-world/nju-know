@@ -6,10 +6,10 @@
 
 ## 云端模式
 
-在 GitHub Actions Variables 中设置 `WECHAT_PROVIDER=cloud`，使用现有的每 3 小时工作流：
+在 GitHub Actions Variables 中设置 `WECHAT_PROVIDER=cloud`，公众号每天北京时间 08:30 采集一次；官网仍每 3 小时检查。代码发布、普通手动运行与官网定时更新均跳过公众号请求，只有每日计划或明确勾选 collect_wechat 的手动运行才会采集：
 
 ```text
-GitHub Actions 定时运行
+GitHub Actions 每日公众号计划
   → 安装固定版本采集模块
   → 从 Secret 和加密缓存恢复微信读书授权
   → 采集公众号 + 抓取官网
@@ -48,7 +48,7 @@ uv pip install --python .local/wechat-collector/.venv/bin/python -r requirements
 .local/wechat-collector/.venv/bin/python upload_wechat_auth.py --upload --repo ZhangYitian-world/nju-know
 ```
 
-此命令会把必要登录凭据发送到指定仓库的 `WECHAT_CLOUD_AUTH` Secret；不打印私密值，也不把 Secret 放入代码。新密钥会安全地替代旧授权缓存。然后在 Actions 中手动运行 Build and Deploy，查看真实来源采集结果。
+此命令会把必要登录凭据发送到指定仓库的 `WECHAT_CLOUD_AUTH` Secret；不打印私密值，也不把 Secret 放入代码。新密钥会安全地替代旧授权缓存。然后在 Actions 中手动运行 Build and Deploy，明确勾选 collect_wechat，查看真实来源采集结果。普通手动运行默认只更新网站，不会采集公众号。
 
 ## 本机模式和旧服务
 
@@ -70,16 +70,22 @@ uv pip install --python .local/wechat-collector/.venv/bin/python -r requirements
 
 连续两个来源触发明确频率限制时，暂停本轮后续请求并保留未完成来源；明确授权失效或微信验证则立即暂停。受限后至少冷却 30 分钟，期间仅发布代码的运行不会再次请求上游，也不算作新一次采集失败。下一轮定时运行到达后再尝试。
 
-采集按每 3 小时的周期保存公开检查点：每完成一个来源就写入文章与进度，同一周期内重跑会跳过已成功的来源，失败或未完成的来源继续补采。进入新周期重新检查，不使用“当天成功就整天跳过”的策略。配置变化也会重新检查。检查点和健康摘要均不含登录凭据，与授权密文缓存分开。
+采集按北京时间自然日保存公开检查点：每完成一个来源就写入文章与进度，同一周期内重跑会跳过已成功的来源，失败或未完成的来源继续补采。进入新周期重新检查，适配每日一次计划。配置变化也会重新检查。检查点和健康摘要均不含登录凭据，与授权密文缓存分开。
 
-首页和信息源页展示最近成功采集时间。页面每分钟按当前时间判断：超过 8 小时没有成功采集时显示同步延迟；每 5 分钟尝试读取公开健康摘要，打开着的页面也能跟随部署更新。公众号没有发布新文章不等于采集失败。
+首页和信息源页展示最近成功采集时间。页面每分钟按当前时间判断：超过 32 小时没有成功采集时显示同步延迟；每 5 分钟尝试读取公开健康摘要，打开着的页面也能跟随部署更新。公众号没有发布新文章不等于采集失败。
 
 只有接口明确认证失败且自动续期未恢复时，才记录“登录需重新授权”。微信验证、频率限制和普通暂不可用分别显示；接口信息不足时不猜测为授权过期。新增文章数表示相对上次保留的公开数据快照新收录的数量。
 
-工作流的“公众号健康检查”在页面部署之后独立执行：明确授权／验证问题立即失败；连续两轮完全未成功或超过 8 小时未成功也失败。网站仍可部署已有内容。邮件由 GitHub 自带通知发送，需账号在 Settings → Notifications 中开启 Actions 的失败通知，详情见 [GitHub 官方说明](https://docs.github.com/en/subscriptions-and-notifications/how-tos/managing-github-actions-notifications)。没有新增邮件服务或密钥。
+工作流的“公众号健康检查”在页面部署之后独立执行：明确授权／验证问题立即失败；连续两轮完全未成功或超过 32 小时未成功也失败。网站仍可部署已有内容。邮件由 GitHub 自带通知发送，需账号在 Settings → Notifications 中开启 Actions 的失败通知，详情见 [GitHub 官方说明](https://docs.github.com/en/subscriptions-and-notifications/how-tos/managing-github-actions-notifications)。没有新增邮件服务或密钥。
 
 若整个工作流停跑，旧页面仍能按时间显示延迟；GitHub 失败邮件依赖工作流实际运行，并不是独立于 GitHub 的外部监控。
 
 ## 候选来源验证
 
 wechat_candidates.json 只保存待核验的公开公众号名称与标识，不自动加入正式来源。手动运行 Verify candidate WeChat sources 工作流，会使用既有加密授权检查这些候选，公开结果保存在 wechat-candidate-results artifact 中，不部署网站、不覆盖正式公开文章缓存。仅验证通过的来源才加入 wechat_sources.json。
+
+## 明天怎样确认恢复
+
+每天 08:30（北京时间）尝试公众号采集，GitHub 排队时可能延迟。09:00 以后可检查当日运行的“云端采集公众号”步骤是否实际执行、成功来源数量，以及网站“最近成功”是否推进到当日。新收录数为零仍可能采集正常，不能只看是否有新文章。未实际尝试时应说明排队／未运行；仍为上游受限时应说明未恢复，不把部署成功当作恢复。
+
+每日计划的延迟告警阈值是 32 小时，给正常的每日间隔留出 8 小时余量。已存在的请求受限或授权异常会持续显示，改计划不会将其变成正常。

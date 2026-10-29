@@ -49,6 +49,9 @@ INSTRUCTIONS = """你在分类南京大学校园信息。文章的标题和简�
 面向毕业生的企业校园招聘、校招、招聘宣讲一律优先考虑活动/就业，不能因企业行业标签误归生活。
 例如“中国证券登记结算有限责任公司2027年度校园招聘公告”是活动/就业；
 “商学院研究系列人员招聘公告”是通知/院系；“破冰活动顺利举办”是通知/校园。
+“口腔健康调查课程志愿者招募”是活动/社团，不是招聘实习或就业。
+只允许下方给出的 kind/category 配对，活动/生活不是合法配对。
+例如面向学生的美食品鉴体验可归活动/文体，收纳师现场教学可归活动/学习；后勤安排公告才归通知/生活。
 提供的 previous_classification 是待复核的旧判断，可能有错，应独立检查。
 """
 PROMPT = INSTRUCTIONS + """
@@ -235,9 +238,11 @@ def main():
             if link and link not in notices:
                 notices[link] = notice
     review_id = os.environ.get("ENRICH_REVIEW_ID", "").strip()
+    review_urls = {line.strip() for line in os.environ.get("ENRICH_REVIEW_URLS", "").splitlines() if line.strip()} if review_id else set()
     pending = [notice for link, notice in notices.items()
-               if not current(cache.get(link), notice, provider, model)
-               or (review_id and cache.get(link, {}).get("review_id") != review_id)]
+               if (link in review_urls if review_urls else (
+                   not current(cache.get(link), notice, provider, model)
+                   or (review_id and cache.get(link, {}).get("review_id") != review_id)))]
     report_file = DATA_DIR / "classification_review.json"
     report = load_json(report_file, {}) if review_id else {}
     if not isinstance(report, dict) or report.get("review_id") != review_id:
@@ -298,7 +303,7 @@ def main():
             cache[notice["url"]] = entry
             if review_id:
                 entry["review_id"] = review_id
-                previous = notice["previous_classification"]
+                previous = report["results"].get(notice["url"], {}).get("previous", notice["previous_classification"])
                 report["results"][notice["url"]] = {
                     "title": notice["title"], "previous": previous,
                     "reviewed": {field: entry.get(field) for field in ("status", "kind", "category", "confidence")},

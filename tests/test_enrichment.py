@@ -109,6 +109,22 @@ class CacheTests(unittest.TestCase):
             report = json.loads((Path(folder) / "classification_review.json").read_text())
             self.assertEqual(report["pending_articles"], 1)
 
+    def test_targeted_review_rechecks_only_requested_urls_and_keeps_original_comparison(self):
+        with tempfile.TemporaryDirectory() as folder:
+            self.run_main(folder)
+            with patch.dict(enrich.os.environ, {"ENRICH_REVIEW_ID": "targeted", "ENRICH_REVIEW_URLS": ""}):
+                self.run_main(folder, [{**CLASSIFICATION, "category": "科研"}])
+                with patch.dict(enrich.os.environ, {"ENRICH_REVIEW_URLS": "https://example.com/not-present"}):
+                    _, calls = self.run_main(folder)
+                    self.assertEqual(calls, 0)
+                with patch.dict(enrich.os.environ, {"ENRICH_REVIEW_URLS": ARTICLE["url"]}):
+                    cache, calls = self.run_main(folder)
+                    self.assertEqual(calls, 1)
+                    self.assertEqual(cache[ARTICLE["url"]]["category"], CLASSIFICATION["category"])
+                    report = json.loads((Path(folder) / "classification_review.json").read_text())
+                    self.assertEqual(report["results"][ARTICLE["url"]]["previous"]["category"], CLASSIFICATION["category"])
+                    self.assertFalse(report["results"][ARTICLE["url"]]["changed"])
+
 
 class HybridTests(unittest.TestCase):
     def test_jev_selects_category_deepseek_supplies_summary(self):

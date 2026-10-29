@@ -181,7 +181,7 @@ def main():
         return
     checkpoint_path = args.output_dir / "wechat_checkpoint.json"
     checkpoint = read_json(checkpoint_path, {})
-    cycle_id = str(int(time.time()) // (3 * 3600))
+    cycle_id = datetime.now(BEIJING).strftime("%Y-%m-%d")
     config_hash = hashlib.sha256(json.dumps(sources, sort_keys=True).encode()).hexdigest()
     completed = {s["name"]: s for s in checkpoint.get("states", []) if s.get("status") == "ok"} if checkpoint.get("cycle_id") == cycle_id and checkpoint.get("config_hash") == config_hash else {}
 

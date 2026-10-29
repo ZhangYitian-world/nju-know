@@ -38,7 +38,7 @@ class HealthTests(unittest.TestCase):
         h = summarize({}, [{"name": "fixture", "status": "ok", "checked_at": OLD, "resumed": True}], started_at=NOW, finished_at=NOW)
         self.assertEqual(h["last_success_at"], OLD)
         self.assertEqual(h["resumed_sources"], 1)
-        self.assertTrue(needs_alert(h, datetime.fromisoformat(NOW).timestamp()))
+        self.assertTrue(needs_alert(h, datetime.fromisoformat(OLD).timestamp() + 33 * 3600))
 
     def test_recovered_source_resets_failure_counter(self):
         h = summarize({"consecutive_failures": 4}, [{"name": "fixture", "status": "ok", "checked_at": NOW}], started_at=NOW, finished_at=NOW, new_count=2)

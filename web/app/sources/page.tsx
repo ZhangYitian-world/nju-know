@@ -22,7 +22,7 @@ export default function SourcesPage() {
     <div>
       <h1 className="mb-1 text-lg font-semibold">信息源</h1>
       <p className="mb-4 text-sm text-stone-500">
-        共接入 {sources.length} 个官网来源{wechatSources.length > 0 ? `、${wechatSources.length} 个公众号来源` : ""}，当前展示 {rows.length} 个发布单位的内容。官网与公众号每 3 小时自动检查。
+        共接入 {sources.length} 个官网来源{wechatSources.length > 0 ? `、${wechatSources.length} 个公众号来源` : ""}，当前展示 {rows.length} 个发布单位的内容。官网每 3 小时检查，公众号每天北京时间 08:30 检查。
       </p>
       {sources.length > 0 && (
         <section className="mb-8">
@@ -65,7 +65,7 @@ export default function SourcesPage() {
           <p className="mb-3 text-xs leading-6 text-stone-500">
             下表为各公众号最近一次采集结果，文章日期为发布日期。采集端离线或来源暂不可用时保留已有内容；页面重新构建不代表来源重新采集。
             {health && ` 最近一轮新收录 ${health.new_count} 条；同一周期已成功检查的 ${health.resumed_sources} 个来源直接复用，未完成来源会在后续运行补采。`}
-            登录失效与网络故障分别记录；超过 8 小时未成功采集时，页面会自动显示同步延迟。
+            登录失效与网络故障分别记录；超过 32 小时未成功采集时，页面会自动显示同步延迟。
           </p>
           <div className="overflow-x-auto rounded-xl ring-1 ring-stone-200">
             <table className="w-full min-w-[640px] bg-white text-left text-sm">

@@ -14,7 +14,7 @@ test('an old static page becomes stale using the visitors clock even without a r
 test('auth, verification and rate limiting have separate messages', () => {
   assert.equal(healthView({ ...health, status: 'auth_required' }, last).level, 'error');
   assert.match(healthView({ ...health, status: 'verification_required' }, last).label, /微信验证/);
-  assert.match(healthView({ ...health, status: 'rate_limited' }, last).label, /频率限制/);
+  assert.match(healthView({ ...health, status: 'rate_limited' }, last).label, /上游限制/);
   assert.match(healthView({ ...health, status: 'partial', succeeded_sources: 46, failed_sources: 1 }, last).label, /46\/47/);
 });
 
@@ -22,4 +22,10 @@ test('missing success dates do not claim normal syncing and times use Beijing', 
   assert.equal(healthView(null, last).level, 'unknown');
   assert.equal(healthView({ ...health, last_success_at: '' }, last).level, 'unknown');
   assert.match(beijingTime('2026-10-29T09:00:00Z'), /17:00/);
+});
+
+test('daily collection tolerates a normal overnight wait before the 32-hour warning', () => {
+  const daily = { ...health, interval_hours: 24, stale_after_hours: 32 };
+  assert.equal(healthView(daily, last + 25 * 3600_000).level, 'ok');
+  assert.match(healthView(daily, last + 33 * 3600_000).label, /32 小时/);
 });

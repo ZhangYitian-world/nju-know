@@ -11,6 +11,8 @@ export type WechatHealth = {
   fetched_count: number;
   new_count: number;
   consecutive_failures: number;
+  interval_hours?: number;
+  stale_after_hours?: number;
 };
 
 export function healthView(health: WechatHealth | null, now: number) {
@@ -20,11 +22,12 @@ export function healthView(health: WechatHealth | null, now: number) {
   if (health.status === "verification_required") return { level: "error", label: "公众号采集需要微信验证" };
   const last = Date.parse(health.last_success_at);
   if (health.status === "ok" && !Number.isFinite(last)) return { level: "unknown", label: "公众号最近成功时间待确认" };
-  if (Number.isFinite(last) && now - last > 8 * 3600_000)
-    return { level: "warning", label: "公众号同步延迟：已超过 8 小时未成功采集" };
+  const staleHours = health.stale_after_hours ?? (health.interval_hours === 24 ? 32 : 8);
+  if (Number.isFinite(last) && now - last > staleHours * 3600_000)
+    return { level: "warning", label: `公众号同步延迟：已超过 ${staleHours} 小时未成功采集` };
   if (health.status === "ok") return { level: "ok", label: "公众号同步正常" };
   if (health.status === "partial") return { level: "warning", label: `公众号部分来源暂不可用（${health.succeeded_sources}/${health.total_sources} 正常）` };
-  if (health.status === "rate_limited") return { level: "warning", label: "公众号采集暂受频率限制，等待后续重试" };
+  if (health.status === "rate_limited") return { level: "warning", label: "公众号采集暂受上游限制，等待后续重试" };
   return { level: "warning", label: "公众号采集暂未完成，已保留现有内容" };
 }
 

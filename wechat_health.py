@@ -5,7 +5,7 @@ from pathlib import Path
 
 import scraper
 
-STALE_SECONDS = 8 * 60 * 60
+STALE_SECONDS = 32 * 60 * 60
 REASONS = {"auth_required", "auth_missing", "verification_required", "rate_limited",
            "network", "empty_result", "not_checked", "collector_error"}
 
@@ -63,7 +63,7 @@ def summarize(previous, states, *, started_at, finished_at, new_count=0, fetched
         "resumed_sources": sum(bool(s.get("resumed")) for s in states),
         "fetched_count": fetched_count, "new_count": new_count,
         "consecutive_failures": 0 if good else int(previous.get("consecutive_failures", 0)) + 1,
-        "interval_hours": 3,
+        "interval_hours": 24, "stale_after_hours": 32, "daily_time": "08:30", "schedule_timezone": "Asia/Shanghai",
     }
     if "rate_limited" in reasons:
         health["retry_after"] = (datetime.fromisoformat(finished_at) + timedelta(minutes=30)).isoformat()
@@ -104,7 +104,8 @@ def needs_alert(health, now=None):
         return True
     last = timestamp(health.get("last_success_at"))
     current = now if now is not None else datetime.now(timezone.utc).timestamp()
-    return bool(last and current - last > STALE_SECONDS)
+    threshold = int(health.get("stale_after_hours", 32 if health.get("interval_hours") == 24 else 8)) * 3600
+    return bool(last and current - last > threshold)
 
 
 def main():

@@ -32,6 +32,7 @@ export default function SyncStatus({ initial }: { initial: WechatHealth | null }
     <div className={`mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-amber-200/60 pt-2 text-xs ${color}`} role="status">
       <span className="flex items-center gap-1.5"><span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />{view.label}</span>
       {health?.last_success_at && <span>最近成功：{beijingTime(health.last_success_at)}（北京时间）</span>}
+      {health?.interval_hours === 24 && <span>每天 08:30 自动检查</span>}
       <Link href="/sources/" className="underline underline-offset-2">查看更新状态</Link>
     </div>
   );

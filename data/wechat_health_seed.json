@@ -1,0 +1,9 @@
+{
+  "last_success_at": "2026-10-29T09:25:33+00:00",
+  "last_full_success_at": "2026-10-29T08:53:17+00:00",
+  "evidence": [
+    "https://github.com/ZhangYitian-world/nju-know/actions/runs/40849112393",
+    "https://github.com/ZhangYitian-world/nju-know/actions/runs/40845113349"
+  ],
+  "note": "Health-tracking migration: verified historical run completion times; 6/47 and 47/47 sources succeeded respectively. New successful collections supersede these timestamps."
+}

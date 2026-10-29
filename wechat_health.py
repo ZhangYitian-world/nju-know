@@ -24,6 +24,16 @@ def timestamp(value):
         return 0
 
 
+def bootstrap_health(previous, data_dir):
+    """Migrate only success times verified in historical run logs; never use article dates."""
+    seed = read_json(Path(data_dir) / "wechat_health_seed.json", {})
+    value = dict(previous)
+    for field in ("last_success_at", "last_full_success_at"):
+        if timestamp(seed.get(field)) > timestamp(value.get(field)):
+            value[field] = seed[field]
+    return value
+
+
 def summarize(previous, states, *, started_at, finished_at, new_count=0, fetched_count=0):
     good = [s for s in states if s.get("status") == "ok"]
     reasons = {s.get("error_reason") for s in states if s.get("status") != "ok"}
@@ -77,7 +87,7 @@ def cooldown_state(previous, states, now):
 def record_failure(data_dir, reason):
     path = Path(data_dir) / "wechat_run_status.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    previous = read_json(path, {})
+    previous = bootstrap_health(read_json(path, {}), data_dir)
     now = datetime.now(timezone.utc).isoformat()
     health = summarize(previous, [], started_at=now, finished_at=now)
     health.update(status=reason if reason in REASONS else "collector_error",

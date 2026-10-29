@@ -1,16 +1,25 @@
 import unittest
+import json
+import tempfile
+from pathlib import Path
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 from collect_wechat_local import CollectorObserver, collect, BEIJING, article_notice
-from wechat_health import summarize, needs_alert, cooldown_state
+from wechat_health import summarize, needs_alert, cooldown_state, bootstrap_health
 
 NOW = "2026-10-29T12:00:00+00:00"
 OLD = "2026-10-29T00:00:00+00:00"
 
 
 class HealthTests(unittest.TestCase):
+    def test_verified_history_seeds_missing_success_without_overwriting_newer_measurements(self):
+        with tempfile.TemporaryDirectory() as folder:
+            (Path(folder) / "wechat_health_seed.json").write_text(json.dumps({"last_success_at": OLD}))
+            self.assertEqual(bootstrap_health({}, folder)["last_success_at"], OLD)
+            self.assertEqual(bootstrap_health({"last_success_at": NOW}, folder)["last_success_at"], NOW)
+
     def test_empty_and_failed_results_preserve_success_time_and_need_two_failed_runs(self):
         previous = {"last_success_at": NOW, "consecutive_failures": 0}
         states = [{"name": "fixture", "status": "unavailable", "error_reason": "empty_result"}]

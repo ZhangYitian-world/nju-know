@@ -17,7 +17,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import scraper
 from fetch_wechat import to_notice
-from wechat_health import cooldown_state, read_json, summarize
+from wechat_health import bootstrap_health, cooldown_state, read_json, summarize
 
 BASE = Path(__file__).resolve().parent
 BEIJING = timezone(timedelta(hours=8))
@@ -172,7 +172,7 @@ def main():
     args.output_dir.mkdir(parents=True, exist_ok=True)
     started = datetime.now(BEIJING).isoformat(timespec="seconds")
     health_path = args.output_dir / "wechat_run_status.json"
-    previous = read_json(health_path, {})
+    previous = bootstrap_health(read_json(health_path, {}), args.output_dir)
     previous_states = read_json(args.output_dir / "wechat_source_status.json", [])
     cooldown = cooldown_state(previous, previous_states, time.time())
     if cooldown:

@@ -5,7 +5,7 @@ import { loadItems } from "@/lib/data";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "南大知道 NJU Know",
+  title: "不南知道 NJU Know",
   description: "南京大学校园活动与通知聚合",
 };
 
@@ -31,7 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               南
             </span>
             <span className="text-xl font-black tracking-tight text-[var(--nju)] sm:text-3xl">
-              「南大知道」<span className="ml-1 font-extrabold">NJU Know</span>
+              「不南知道」<span className="ml-1 font-extrabold">NJU Know</span>
             </span>
           </Link>
           <nav className="flex w-full gap-2 sm:ml-auto sm:w-auto">

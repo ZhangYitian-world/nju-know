@@ -22,7 +22,7 @@ class CloudAuthTests(unittest.TestCase):
             bundle = self.bundle()
             path = Path(d) / "auth.enc"
             updated = [{"token": "synthetic-refreshed-account-token"}]
-            save_auth(bundle, updated, path)
+            save_auth(bundle, [{**updated[0], "nickname": "irrelevant profile", "avatar": "irrelevant avatar"}], path)
             self.assertNotIn(b"synthetic-refreshed", path.read_bytes())
             self.assertEqual(restore_auth(bundle, path), updated)
 

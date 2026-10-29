@@ -1,4 +1,4 @@
-# 南大知道 · NJU Know
+# 不南知道 · NJU Know
 
 [![Build and Deploy](https://github.com/ZhangYitian-world/nju-know/actions/workflows/deploy.yml/badge.svg)](https://github.com/ZhangYitian-world/nju-know/actions/workflows/deploy.yml)
 

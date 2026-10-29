@@ -27,6 +27,7 @@ def restore_auth(bundle, cache):
         try:
             value = json.loads(cipher(bundle["key"]).decrypt(cache.read_bytes()))
             if isinstance(value, list) and value:
+                print("加密授权缓存已验证并恢复。", flush=True)
                 return value
         except (InvalidToken, ValueError, TypeError):
             # A new authorised seed/key safely supersedes an older cache.
@@ -35,7 +36,10 @@ def restore_auth(bundle, cache):
 
 
 def save_auth(bundle, accounts, cache):
-    encrypted = cipher(bundle["key"]).encrypt(json.dumps(accounts, ensure_ascii=False).encode())
+    from upload_wechat_auth import AUTH_FIELDS
+    fields = AUTH_FIELDS | {"cooldown_until", "failures", "last_used"}
+    minimal = [{k: v for k, v in account.items() if k in fields} for account in accounts]
+    encrypted = cipher(bundle["key"]).encrypt(json.dumps(minimal, ensure_ascii=False).encode())
     cache.parent.mkdir(parents=True, exist_ok=True)
     cache.write_bytes(encrypted)
     cache.chmod(0o600)

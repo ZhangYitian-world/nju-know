@@ -24,7 +24,7 @@ export function GET() {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
   <channel>
-    <title>南大知道 NJU Know</title>
+    <title>不南知道 NJU Know</title>
     <description>南京大学校园活动与通知聚合</description>
     <link>https://njuknow.zhangyitian.com/</link>
 ${entries}

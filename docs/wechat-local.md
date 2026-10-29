@@ -1,69 +1,67 @@
-# 本机公众号采集
+# 公众号采集：云端自动更新与本机授权
 
-当前公众号通道使用 [wechatAutoRSSTool](https://github.com/x554960766/wechatAutoRSSTool) 的微信读书采集模块。已验证版本为 `1b24c1d388ab3ff0262cbb7ada5533f23c7b4689`，原项目及许可证保留在本机安装目录中。
+当前使用 [wechatAutoRSSTool](https://github.com/x554960766/wechatAutoRSSTool) 的微信读书采集模块，固定版本为 `1b24c1d388ab3ff0262cbb7ada5533f23c7b4689`。只取公开文章的标题、原文链接、发布单位、时间、封面和已有简介，不批量下载正文、评论或互动数据。
 
-NJU Know 只调用公开文章列表，保留标题、原文链接、发布单位、时间、封面和已有简介，不批量下载正文、评论或互动数据。原有 WeRSS 适配仍保留，但本机模式下不让旧上游覆盖新数据。
+`wechat_sources.json` 配置 47 个公众号，包含原有数据的全部 45 个发布单位，并新增南京大学与南京大学学生会。每个来源每轮取最新 8 条，顺序请求、间隔 2 秒，合并后最多保留 480 条并过滤过期文章。单个来源失败时保留其旧文章；全部失败时不覆盖文章文件。
 
-## 自动更新如何工作
+## 云端模式
+
+在 GitHub Actions Variables 中设置 `WECHAT_PROVIDER=cloud`，使用现有的每 3 小时工作流：
 
 ```text
-本机微信读书授权（凭据在 .local/，不提交）
-  → 本机每 6 小时运行 publish.sh
-  → collect_wechat_local.py 顺序抓取公众号元数据
-  → data/wechat.json + data/wechat_source_status.json
-  → git push
-  → GitHub Actions 抓官网、DeepSeek 分类与摘要、构建并部署
+GitHub Actions 定时运行
+  → 安装固定版本采集模块
+  → 从 Secret 和加密缓存恢复微信读书授权
+  → 采集公众号 + 抓取官网
+  → DeepSeek 分类与摘要
+  → Next.js 静态构建和 GitHub Pages 部署
 ```
 
-公众号采集依赖本机运行，电脑关机或休眠期间暂停。GitHub 上的官网抓取与部署仍每 3 小时运行；云端没有微信读书登录凭据，也不尝试直接抓取本机通道。
+个人电脑关机、休眠不影响该模式。GitHub 定时任务可能排队延迟；微信读书授权到期、验证或上游限制仍可能需要本人重新扫码，不能保证永久免维护。
 
-本机采集每个公众号最多取最近 8 条，各来源间等待 2 秒，合并已有内容后最多保留 480 条并过滤过期文章。单个来源失败时保留旧内容，全部失败时不覆盖 `wechat.json`。新增或修改公开来源可编辑根目录 `wechat_sources.json`。
+### 授权如何保存
 
-## 安装与登录
+- `WECHAT_CLOUD_AUTH` 是仓库 Actions Secret，包含必要的登录／刷新 Token、设备标识及授权缓存加密密钥。不保存聊天记录，也不迁移头像和昵称等无关字段。
+- 工作流只在采集步骤使用该 Secret，实际登录文件位于 runner 的 `.local/` 私密目录；SDK 的原始日志不输出到公开日志。
+- 跨运行的授权状态先用 Fernet 认证加密，缓存中只有 `.local/wechat-auth.enc` 密文。密钥不随缓存保存，普通文章缓存不包含授权信息。
+- 采集完成后删除 runner 中的明文授权目录；静态网站只读取公开文章数据。
+- 新文章和来源状态使用独立的公开数据缓存保存，不需要工作流修改仓库或推送提交。
 
-在仓库根目录运行，使用独立的 Python 3.12 虚拟环境：
+## 初次登录与重新授权
+
+先在自己的电脑安装独立 Python 3.12 环境：
 
 ```bash
 mkdir -p .local
 git clone https://github.com/x554960766/wechatAutoRSSTool.git .local/wechat-collector
 git -C .local/wechat-collector checkout 1b24c1d388ab3ff0262cbb7ada5533f23c7b4689
 uv venv --python 3.12 .local/wechat-collector/.venv
-uv pip install --python .local/wechat-collector/.venv/bin/python -r requirements-wechat.txt
+uv pip install --python .local/wechat-collector/.venv/bin/python -r requirements-wechat.txt cryptography==50.0.2
 .local/wechat-collector/.venv/bin/python wechat_login.py
 ```
 
-打开 <http://127.0.0.1:5291/nju-setup>，生成二维码，用自己的微信扫码并在手机上确认登录微信读书。完成后可以关闭登录服务；定时采集直接调用本机模块，不需要一直开着这个网页。
+打开 <http://127.0.0.1:5291/nju-setup>，用自己的微信扫码，在手机上确认登录微信读书。登录页只监听本机地址。凭据保存在忽略目录 `.local/` 中，不得提交到仓库。
 
-`.local/` 已加入 Git 忽略规则。登录数据、虚拟环境和采集器源码都保留在该目录；不要复制账号池文件、Token 或原始服务日志到公开仓库。登录窗口仅监听本机回环地址。
-
-## 启用本机模式
-
-在已有的 `.env` 中添加或修改一项，保留其他已有凭据：
-
-```dotenv
-WECHAT_PROVIDER=local
-```
-
-然后在 GitHub 仓库的 **Actions Variables** 中同样设置 `WECHAT_PROVIDER=local`。这是模式开关，不是密钥；原有 `DEEPSEEK_API_KEY` 继续保留在 Actions Secrets。
-
-本机手动更新并发布：
+本人同意将此账号授权用于指定仓库的云端采集后，执行：
 
 ```bash
-sh publish.sh
+.local/wechat-collector/.venv/bin/python upload_wechat_auth.py --upload --repo ZhangYitian-world/nju-know
 ```
 
-只采集、不提交时：
+此命令会把必要登录凭据发送到指定仓库的 `WECHAT_CLOUD_AUTH` Secret；不打印私密值，也不把 Secret 放入代码。新密钥会安全地替代旧授权缓存。然后在 Actions 中手动运行 Build and Deploy，查看真实来源采集结果。
+
+## 本机模式和旧服务
+
+如需本机运行，在 `.env` 中设置 `WECHAT_PROVIDER=local`，使用原有每 6 小时的 launchd / publish.sh；该模式才依赖本机开机。直接采集而不提交可运行：
 
 ```bash
 .local/wechat-collector/.venv/bin/python collect_wechat_local.py
 ```
 
-`publish.sh` 会读取 `.env`。自行运行采集命令时也可用 `WECHAT_COLLECTOR_ROOT` 指定外部采集器目录；发布脚本支持 `WECHAT_COLLECTOR_PYTHON` 覆盖虚拟环境的 Python 路径。
+本机路径可通过 `WECHAT_COLLECTOR_ROOT` 和 `WECHAT_COLLECTOR_PYTHON` 覆盖。云端模式下本机 `.env` 可设为 `WECHAT_PROVIDER=cloud`，避免旧任务再次抓取或使用旧 WeRSS 覆盖云端来源。
 
-## 状态和重新授权
+旧 WeRSS 适配仍保留；只有先确认旧服务确实返回新数据后，才把模式切回 `werss`。
 
-`data/wechat_source_status.json` 仅包含公开来源名称、检查时间、状态、条数、最新文章日期及简化的异常类型，不包含账号登录信息。模型仍在云端处理，首次新增较多文章时会分轮处理，未处理内容先使用规则。
+## 查看更新状态
 
-如果所有来源都不再取得文章，先重新运行 `wechat_login.py` 查看登录状态；授权失效时重新扫码。某个公众号长期没有新内容也可能是该号未更新、未被微信读书收录或受接口限制，不应直接清空其历史记录。
-
-切回旧服务时，把本机和 GitHub 变量的 `WECHAT_PROVIDER` 都改为 `werss`；应先确认旧服务有新数据，再切换。
+网站信息源页展示公众号检查时间、状态和最新文章日期。`data/wechat_source_status.json` 只记录公开来源状态和简化异常类型。站点构建时间不代表文章或来源的更新时间；来源不可用时继续保留已有内容。

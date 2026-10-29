@@ -16,7 +16,7 @@ npm run build   # 静态导出到 out/
 
 GitHub Actions 每三小时抓取公众号与官网通知，使用 Node.js 24 构建，将 `web/out` 部署到 GitHub Pages。自定义域名使用根路径，Next.js 不设置 `basePath`。若切回默认项目站地址 `https://zhangyitian-world.github.io/nju-know/`，需配置 `basePath: "/nju-know"` 并重新构建。
 
-当前公众号使用本机授权的微信读书通道，每 6 小时采集公开元数据后推送，云端继续分类和部署；电脑关机或休眠时公众号采集暂停。模式由本机 `.env` 和 Actions Variables 中的 `WECHAT_PROVIDER=local` 控制，扫码凭据保存在忽略的 `.local/` 目录，详见[本机采集说明](../docs/wechat-local.md)。旧 WeRSS 适配及其 `WERSS_AK` / `WERSS_SK` 配置仍保留作可选方案。不要提交真实密钥、登录凭证或本地交接记录。
+公众号支持 GitHub Actions 每 3 小时云端采集，电脑关机也可继续更新。模式由 Actions Variables 中的 `WECHAT_PROVIDER=cloud` 控制，授权种子与加密密钥放在 `WECHAT_CLOUD_AUTH` Secret，跨构建只缓存授权密文；详见[采集说明](../docs/wechat-local.md)。本机扫码用于初次授权和到期后的重新授权，不要把登录凭据提交到仓库、日志或网站。旧 WeRSS 适配仍保留作可选方案。
 
 云端分类由 `enrich_llm.py` 在每次抓取后执行。双模型模式需要在 GitHub Actions Secrets 配置以下两项：
 

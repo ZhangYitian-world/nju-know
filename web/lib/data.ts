@@ -49,6 +49,18 @@ export function loadOfficialSources(): OfficialSource[] {
   return readJson<OfficialSource[]>("source_status.json", []);
 }
 
+export type WechatSource = {
+  name: string;
+  status: "ok" | "unavailable";
+  checked_at: string;
+  latest_date: string;
+  item_count: number;
+};
+
+export function loadWechatSources(): WechatSource[] {
+  return readJson<WechatSource[]>("wechat_source_status.json", []);
+}
+
 const SIGNUP = /报名|申报|招募|招新|纳新|预约/;
 
 function readJson<T>(file: string, fallback: T): T {

@@ -24,7 +24,37 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.x"
+          python-version: "3.12"
+      - name: 准备云端公众号采集器
+        if: vars.WECHAT_PROVIDER == 'cloud'
+        run: |
+          python -m pip install -r requirements-wechat.txt cryptography==50.0.2
+          mkdir -p .local/wechat-collector
+          git -C .local/wechat-collector init
+          git -C .local/wechat-collector remote add origin https://github.com/x554960766/wechatAutoRSSTool.git
+          git -C .local/wechat-collector fetch --depth 1 origin 1b24c1d388ab3ff0262cbb7ada5533f23c7b4689
+          git -C .local/wechat-collector checkout --detach FETCH_HEAD
+      - name: 恢复云端公众号公开数据
+        if: vars.WECHAT_PROVIDER == 'cloud'
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/wechat.json
+            data/wechat_source_status.json
+          key: wechat-public-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: wechat-public-v1-
+      - name: 恢复加密的公众号授权状态
+        if: vars.WECHAT_PROVIDER == 'cloud'
+        uses: actions/cache@v4
+        with:
+          path: .local/wechat-auth.enc
+          key: wechat-auth-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: wechat-auth-v1-
+      - name: 云端采集公众号（不依赖本机开机）
+        if: vars.WECHAT_PROVIDER == 'cloud'
+        env:
+          WECHAT_CLOUD_AUTH: ${{ secrets.WECHAT_CLOUD_AUTH }}
+        run: python collect_wechat_cloud.py
       - name: 准备公众号数据（本机同步或远程 API/RSS）
         env:
           WECHAT_PROVIDER: ${{ vars.WECHAT_PROVIDER }}

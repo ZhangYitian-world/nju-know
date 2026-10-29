@@ -32,7 +32,7 @@ export function isStaffRecruitment(title: string): boolean {
 }
 
 export function isRecap(title: string, summary = ""): boolean {
-  return /回顾|回望|圆满(?:举办|举行|结束|落幕)|成功(?:举办|举行)|顺利(?:召开|举行)|纪实|侧记|活动总结/.test(title)
+  return /回顾|回望|圆满(?:举办|举行|结束|落幕)|成功(?:举办|举行)|顺利(?:召开|举行|举办)|纪实|侧记|活动总结/.test(title)
     || (!/预告|报名|招募|即将|邀[请您]/.test(title) && /访企拓岗.*走进/.test(title))
     || (!/预告|报名|招募|即将|邀[请您]/.test(title) && /成功举办|圆满结束|顺利召开|举办了|举行了|活动回顾/.test(summary));
 }

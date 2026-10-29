@@ -133,8 +133,8 @@ def collect():
 
 
 def main():
-    if os.environ.get("WECHAT_PROVIDER") == "local":
-        print("公众号由本机采集后提交公开文章；本轮保留仓库数据，避免旧上游覆盖新内容。")
+    if os.environ.get("WECHAT_PROVIDER") in ("local", "cloud"):
+        print("公众号已使用独立采集通道；本轮保留已有数据，避免旧上游覆盖新内容。")
         return
     raw_items = collect()
 

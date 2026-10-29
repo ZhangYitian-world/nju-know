@@ -20,6 +20,7 @@ test('staff recruiting is not student employment, student campus recruiting rema
 
 test('recaps stop entering live activity sections; previews remain live', () => {
   assert.deepEqual(classify('访企拓岗 | 创智鼓楼·脑机前沿——走进南京大学脑机接口研究院', 'NJUAI研会', '通知'), { kind: '通知', category: '科研' });
+  assert.deepEqual(classify('四色分组藏惊喜，五轮游戏聚新朋 | 现代工学院研会2026破冰活动顺利举办', '南大现工院研会', '活动'), { kind: '通知', category: '校园' });
   assert.deepEqual(classify('讲座预告：国际传播与数字社会', '新闻传播学院', '活动'), { kind: '活动', category: '讲座' });
   assert.equal(classify('国际传播论坛', '新闻传播学院', '活动', '论坛将于下周举行').kind, '活动');
   assert.equal(classify('国际传播论坛', '新闻传播学院', '活动', '此次论坛成功举办，师生共同参与').kind, '通知');

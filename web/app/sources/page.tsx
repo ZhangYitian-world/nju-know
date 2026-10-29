@@ -1,7 +1,8 @@
-import { loadItems, loadOfficialSources } from "@/lib/data";
+import { loadItems, loadOfficialSources, loadWechatSources } from "@/lib/data";
 
 export default function SourcesPage() {
   const sources = loadOfficialSources();
+  const wechatSources = loadWechatSources();
   const statusLabels = { ok: "正常", partial: "部分栏目暂不可用", unavailable: "暂不可用" };
   const counts = new Map<string, { channel: string; n: number; latest: string }>();
   for (const i of loadItems().flatMap((item) => item.origins)) {
@@ -19,7 +20,7 @@ export default function SourcesPage() {
     <div>
       <h1 className="mb-1 text-lg font-semibold">信息源</h1>
       <p className="mb-4 text-sm text-stone-500">
-        共接入 {sources.length} 个官网来源，当前展示 {rows.length} 个发布单位的内容。官网每 3 小时自动检查，公众号文章通过 WeRSS 获取。
+        共接入 {sources.length} 个官网来源{wechatSources.length > 0 ? `、${wechatSources.length} 个公众号来源` : ""}，当前展示 {rows.length} 个发布单位的内容。官网与公众号每 3 小时自动检查。
       </p>
       {sources.length > 0 && (
         <section className="mb-8">
@@ -46,6 +47,38 @@ export default function SourcesPage() {
                       <a href={source.pages[0]} target="_blank" rel="noreferrer" className="text-[var(--nju)] hover:underline">{source.name}</a>
                     </td>
                     <td className={`px-3 py-2 ${source.status === "ok" ? "text-emerald-700" : "text-amber-700"}`}>{statusLabels[source.status]}</td>
+                    <td className="px-3 py-2">{source.item_count}</td>
+                    <td className="px-3 py-2 text-stone-500">{source.latest_date || "—"}</td>
+                    <td className="px-3 py-2 text-stone-500">{source.checked_at.slice(0, 16).replace("T", " ")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+      {wechatSources.length > 0 && (
+        <section className="mb-8">
+          <h2 className="mb-2 text-base font-semibold">公众号来源与同步状态</h2>
+          <p className="mb-3 text-xs leading-6 text-stone-500">
+            下表为各公众号最近一次采集结果，文章日期为发布日期。采集端离线或来源暂不可用时保留已有内容；页面重新构建不代表来源重新采集。
+          </p>
+          <div className="overflow-x-auto rounded-xl ring-1 ring-stone-200">
+            <table className="w-full min-w-[640px] bg-white text-left text-sm">
+              <thead className="bg-stone-50 text-stone-500">
+                <tr>
+                  <th className="px-3 py-2 font-normal">公众号</th>
+                  <th className="px-3 py-2 font-normal">状态</th>
+                  <th className="px-3 py-2 font-normal">本轮取得条数</th>
+                  <th className="px-3 py-2 font-normal">最新文章日期</th>
+                  <th className="px-3 py-2 font-normal">最近采集（北京时间）</th>
+                </tr>
+              </thead>
+              <tbody>
+                {wechatSources.map((source) => (
+                  <tr key={source.name} className="border-t border-stone-100">
+                    <td className="px-3 py-2">{source.name}</td>
+                    <td className={`px-3 py-2 ${source.status === "ok" ? "text-emerald-700" : "text-amber-700"}`}>{source.status === "ok" ? "正常" : "暂不可用"}</td>
                     <td className="px-3 py-2">{source.item_count}</td>
                     <td className="px-3 py-2 text-stone-500">{source.latest_date || "—"}</td>
                     <td className="px-3 py-2 text-stone-500">{source.checked_at.slice(0, 16).replace("T", " ")}</td>

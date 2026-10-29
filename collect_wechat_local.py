@@ -1,6 +1,7 @@
 """Collect public article metadata using a locally authorised WeRead collector.
 
-The external collector and its login files live in ignored .local/, never in CI.
+The external collector and its private login files stay in ignored .local/.
+CI initialises this directory temporarily from the authorised cloud secret.
 No article body downloads, account credentials or personal profile are exported.
 """
 import argparse

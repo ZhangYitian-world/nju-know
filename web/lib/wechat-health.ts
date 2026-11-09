@@ -36,3 +36,10 @@ export function beijingTime(value: string) {
   if (!Number.isFinite(date.getTime())) return "尚无记录";
   return new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
 }
+
+export function sourceStatusLabel(source: { status: string; error_reason?: string }) {
+  if (source.status === "ok") return "正常";
+  if (source.status === "pending") return "本轮未请求，待轮换补采";
+  const labels: Record<string, string> = { auth_required: "登录需重新授权", verification_required: "需要微信验证", rate_limited: "请求受限，等待重试", network: "网络暂不可用", empty_result: "暂未取得文章", not_checked: "本轮待补采", collector_error: "采集暂不可用" };
+  return labels[source.error_reason || ""] || "暂不可用";
+}

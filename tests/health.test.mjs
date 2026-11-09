@@ -1,9 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { healthView, beijingTime } from '../web/lib/wechat-health.ts';
+import { healthView, beijingTime, sourceStatusLabel } from '../web/lib/wechat-health.ts';
 
 const last = Date.parse('2026-10-29T09:00:00Z');
 const health = { version: 1, status: 'ok', checked_at: '2026-10-29T09:00:00Z', last_success_at: '2026-10-29T09:00:00Z', total_sources: 47, succeeded_sources: 47, failed_sources: 0, resumed_sources: 0, fetched_count: 376, new_count: 0, consecutive_failures: 0 };
+
+test('a deferred source is not displayed as an attempted request failure', () => {
+  assert.match(sourceStatusLabel({ status: 'pending', error_reason: 'rate_limited' }), /本轮未请求/);
+  assert.match(sourceStatusLabel({ status: 'unavailable', error_reason: 'rate_limited' }), /请求受限/);
+});
 
 test('an old static page becomes stale using the visitors clock even without a rebuild', () => {
   assert.equal(healthView(health, last + 3600_000).level, 'ok');

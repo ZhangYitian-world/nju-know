@@ -17,7 +17,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import scraper
 from fetch_wechat import to_notice
-from wechat_health import bootstrap_health, cooldown_state, read_json, summarize
+from wechat_health import bootstrap_health, cooldown_state, read_json, summarize, timestamp
 
 BASE = Path(__file__).resolve().parent
 BEIJING = timezone(timedelta(hours=8))
@@ -54,8 +54,19 @@ def merge_notices(existing, incoming, limit=480):
     return [{**row, "id": index} for index, row in enumerate(rows, 1)]
 
 
+def source_queue(sources, previous_states):
+    """Give deferred sources the next turn; fixed order otherwise starves the tail."""
+    prior = {s["name"]: s for s in (previous_states or [])}
+    def priority(source):
+        old = prior.get(source["name"], {})
+        return (0 if old.get("status") == "pending" else 1,
+                timestamp(old.get("checked_at")))
+    return sorted(sources, key=priority)
+
+
 def collect(sources, fetch_page, existing, per_source=8, delay=2, *, previous_states=None,
             completed=None, on_progress=None, observer=None, max_seconds=None):
+    sources = source_queue(sources, previous_states)
     incoming, states = [], []
     prior = {s["name"]: s for s in (previous_states or [])}
     started = time.monotonic()

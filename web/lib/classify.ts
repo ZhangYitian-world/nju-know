@@ -19,7 +19,7 @@ const ACTIVITY_RULES: [Category, RegExp][] = [
 
 const NOTICE_RULES: [Category, RegExp][] = [
   ["奖学金", /奖学金|助学|资助|评优|奖励|奖金|补助|励志/],
-  ["学业", /选课|考试|四六级|学籍|课程|教务|成绩|重修|补缓考|毕业|学位|分流|普通话|教室|慕课|开课|招生|推免|复试|录取|考核|参考书目|新生|照片采集|图像采集/],
+  ["学业", /选课|考试|四六级|学籍|课程|教务|成绩|重修|补缓考|毕业|学位|分流|普通话|教室|慕课|开课|招生|推免|复试|录取|考核|答辩|参考书目|新生|照片采集|图像采集/],
   ["科研", /科研|课题|立项|基金|创新训练|大创|创新年会|论文|新刊|研究(?:成果|进展|报告|项目|团队)/],
   // 节日祝福类推文数量多但没有实际信息，归到「校园」，免得把「生活」挤满
   ["生活", /宿舍|食堂|校园卡|校车|医院|疫苗|体检|后勤|放假|开放时间|值班表/],
@@ -33,12 +33,19 @@ export function isStaffRecruitment(title: string): boolean {
 
 export function isRecap(title: string, summary = ""): boolean {
   return /回顾|回望|圆满(?:举办|举行|结束|落幕)|成功(?:举办|举行)|顺利(?:召开|举行|举办)|纪实|侧记|活动总结/.test(title)
+    || (!/关于|将于|拟于|预告|报名|招募|即将|邀[请您]/.test(title) && /(?:在|于).{1,40}(?:举办|举行|召开)[！!。\s]*$|(?:举办|举行|召开)了/.test(title))
     || (!/预告|报名|招募|即将|邀[请您]/.test(title) && /访企拓岗.*走进/.test(title))
     || (!/预告|报名|招募|即将|邀[请您]/.test(title) && /成功举办|圆满结束|顺利召开|举办了|举行了|活动回顾/.test(summary));
 }
 
 export function requiresNotice(title: string, summary = ""): boolean {
-  return isStaffRecruitment(title) || isRecap(title, summary);
+  return isStaffRecruitment(title) || isRecap(title, summary) || isAdministrative(title);
+}
+
+// “通知”是文体，不是类别；报名通知仍可属于活动，遴选答辩、结果公示等属于办事流程。
+export function isAdministrative(title: string): boolean {
+  return /公示|名单|评审结果|获奖|实施细则|评定办法|会议纪要|遴选答辩|遴选面试|资格审查|材料(?:提交|报送|审核)|报销|结项验收/.test(title)
+    || (/(?:通知|公告)[！!。\s]*$/.test(title) && /选课|考试|学籍|学位|毕业|招生|推免|复试|考核|答辩|奖学金|资助|补助|放假|调课|停课|开放安排|系统维护/.test(title));
 }
 
 // 标题里出现这些词，基本可以认为是可以参与的「活动」
@@ -48,7 +55,7 @@ const ACTIVITY_HINT =
 export function classify(title: string, organizer: string, rawType: string, summary = ""): { kind: Kind; category: Category } {
   if (isStaffRecruitment(title)) return { kind: "通知", category: "院系" };
   if (isRecap(title, summary)) return { kind: "通知", category: /学术|研究|科研/.test(title) ? "科研" : "校园" };
-  const administrative = /公示|名单|评审结果|获奖|实施细则|评定办法|会议纪要/.test(title);
+  const administrative = isAdministrative(title);
   if (!administrative && (ACTIVITY_HINT.test(title) || rawType === "活动")) {
     for (const [cat, re] of ACTIVITY_RULES) if (re.test(title)) return { kind: "活动", category: cat };
     // 爬虫标成「活动」但标题看不出活动类型的（如考试报名），按通知处理

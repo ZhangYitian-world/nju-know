@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { classify } from '../web/lib/classify.ts';
+import { classify, requiresNotice } from '../web/lib/classify.ts';
 import { canonicalUrl, cleanSummary, mergeStories, sameStory } from '../web/lib/dedupe.ts';
 
 function item(title, overrides = {}) {
@@ -36,6 +36,26 @@ test('graduate studies and award results are not research or live activities', (
   assert.deepEqual(classify('商学院2027年硕士研究生招生参考书目', '商学院', '通知'), { kind: '通知', category: '学业' });
   assert.equal(classify('模拟法庭竞赛奖金获奖名单公示', '法学院', '活动').kind, '通知');
   assert.deepEqual(classify('关于2027年春季台北大学交流项目申请的通知', '政府管理学院', '通知'), { kind: '活动', category: '留学' });
+});
+
+test('administrative procedures override cached AI activity labels without hiding participation notices', () => {
+  const title = '关于2027春季学期研究生赴台交流项目遴选答辩的通知';
+  assert.equal(requiresNotice(title), true);
+  assert.deepEqual(classify(title, '研究生院', '活动'), { kind: '通知', category: '学业' });
+  assert.equal(requiresNotice('培训项目入选名单公示'), true);
+  assert.equal(classify('关于开展培训项目资格审查的通知', '教务处', '活动').kind, '通知');
+  for (const title of ['关于举办首届智能杯创新大赛的通知', '专题讲座报名通知', '关于2027年春季台北大学交流项目申请的通知']) {
+    assert.equal(requiresNotice(title), false, title);
+    assert.equal(classify(title, '研究生院', '通知').kind, '活动', title);
+  }
+});
+
+test('plain past-event headlines are recaps, future notices remain activities', () => {
+  const title = '国际传播专题讲座在江苏社科之家举办';
+  assert.equal(requiresNotice(title), true);
+  assert.equal(classify(title, '南京大学社会科学处', '活动').kind, '通知');
+  assert.equal(classify('国际传播讲座将于江苏社科之家举办', '南京大学社会科学处', '活动').kind, '活动');
+  assert.equal(classify('关于举办学术论坛的通知', '文学院', '活动').kind, '活动');
 });
 
 test('canonical URLs discard trackers, but preserve WeChat article identifiers', () => {

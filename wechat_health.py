@@ -60,6 +60,8 @@ def summarize(previous, states, *, started_at, finished_at, new_count=0, fetched
         if status == "ok" else previous.get("last_full_success_at", ""),
         "total_sources": len(states), "succeeded_sources": len(good),
         "failed_sources": len(states) - len(good),
+        "attempted_failed_sources": sum(s.get("status") == "unavailable" for s in states),
+        "pending_sources": sum(s.get("status") == "pending" for s in states),
         "resumed_sources": sum(bool(s.get("resumed")) for s in states),
         "fetched_count": fetched_count, "new_count": new_count,
         "consecutive_failures": 0 if good else int(previous.get("consecutive_failures", 0)) + 1,

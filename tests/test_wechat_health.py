@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from collect_wechat_local import CollectorObserver, collect, BEIJING, article_notice
+from collect_wechat_local import CollectorObserver, collect, BEIJING, article_notice, source_queue
 from wechat_health import summarize, needs_alert, cooldown_state, bootstrap_health
 
 NOW = "2026-10-29T12:00:00+00:00"
@@ -14,6 +14,29 @@ OLD = "2026-10-29T00:00:00+00:00"
 
 
 class HealthTests(unittest.TestCase):
+    def test_deferred_sources_are_distinct_from_actual_failed_requests(self):
+        states = [{"status": "ok", "checked_at": NOW}, {"status": "unavailable", "error_reason": "rate_limited"}, {"status": "pending", "error_reason": "rate_limited"}]
+        h = summarize({}, states, started_at=NOW, finished_at=NOW)
+        self.assertEqual((h["succeeded_sources"], h["attempted_failed_sources"], h["pending_sources"]), (1, 1, 1))
+
+    def test_next_cycle_checks_deferred_tail_before_repeating_successful_head(self):
+        sources = [{"name": str(i), "fakeid": str(i)} for i in range(5)]
+        observer = SimpleNamespace(reset=Mock(), reason="rate_limited")
+        api = Mock(return_value=([], 0, False))
+        _, first, _ = collect(sources, api, [], delay=0, observer=observer)
+        api.reset_mock()
+        _, second, _ = collect(sources, api, [], delay=0, observer=observer, previous_states=first)
+        self.assertEqual([call.args[0] for call in api.call_args_list], ['2', '3'])
+        api.reset_mock()
+        collect(sources, api, [], delay=0, observer=observer, previous_states=second)
+        self.assertEqual(api.call_args_list[0].args[0], '4')
+
+    def test_queue_orders_by_real_check_time_and_does_not_mutate_configuration(self):
+        sources = [{"name": "recent"}, {"name": "older"}, {"name": "new"}]
+        prior = [{"name": "recent", "checked_at": NOW}, {"name": "older", "checked_at": OLD}]
+        self.assertEqual([s['name'] for s in source_queue(sources, prior)], ['new', 'older', 'recent'])
+        self.assertEqual(sources[0]['name'], 'recent')
+
     def test_verified_history_seeds_missing_success_without_overwriting_newer_measurements(self):
         with tempfile.TemporaryDirectory() as folder:
             (Path(folder) / "wechat_health_seed.json").write_text(json.dumps({"last_success_at": OLD}))

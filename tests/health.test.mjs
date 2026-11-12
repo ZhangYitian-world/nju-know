@@ -34,3 +34,13 @@ test('daily collection tolerates a normal overnight wait before the 32-hour warn
   assert.equal(healthView(daily, last + 25 * 3600_000).level, 'ok');
   assert.match(healthView(daily, last + 33 * 3600_000).label, /32 小时/);
 });
+
+test('coverage combines separate rounds and drops each success when it leaves the 48-hour window', () => {
+  const earlier = new Date(last - 48 * 3600_000).toISOString();
+  const recent = new Date(last).toISOString();
+  const partial = { ...health, status: 'partial', total_sources: 3, succeeded_sources: 2,
+    source_last_success_at: [earlier, recent, recent] };
+  assert.deepEqual(healthView(partial, last), { level: 'ok', label: '最近成功：3/3（近 48 小时）' });
+  assert.deepEqual(healthView(partial, last + 1), { level: 'warning', label: '最近成功：2/3（近 48 小时）' });
+  assert.match(healthView({ ...partial, status: 'auth_required' }, last).label, /重新授权.*3\/3/);
+});

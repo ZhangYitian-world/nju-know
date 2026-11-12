@@ -61,7 +61,20 @@ export type WechatSource = {
 };
 
 export function loadWechatHealth(): WechatHealth | null {
-  return readJson<WechatHealth | null>("wechat_run_status.json", null);
+  const health = readJson<WechatHealth | null>("wechat_run_status.json", null);
+  const sources = loadWechatSources();
+  if (!health || !sources.length) return health;
+
+  const successes = new Map<string, string>();
+  for (const source of sources) {
+    const last = source.last_success || (source.status === "ok" ? source.checked_at : "");
+    const time = Date.parse(last);
+    const previous = successes.get(source.name);
+    if (Number.isFinite(time) && (!previous || time > Date.parse(previous))) {
+      successes.set(source.name, last);
+    }
+  }
+  return { ...health, source_last_success_at: [...successes.values()] };
 }
 
 export function loadWechatSources(): WechatSource[] {

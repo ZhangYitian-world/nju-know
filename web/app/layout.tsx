@@ -17,7 +17,8 @@ const NAV = [
 ];
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
-  const updated = new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
+  const builtAt = Date.now();
+  const updated = new Date(builtAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
   const latestWechat = loadItems()
     .flatMap((item) => item.origins)
     .filter((item) => item.channel === "公众号")
@@ -54,7 +55,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             信息请以原发布单位为准。
             {latestWechat && ` 公众号收录文章的最新发布日期：${latestWechat}。`}
             </p>
-            <SyncStatus initial={loadWechatHealth()} />
+            <SyncStatus initial={loadWechatHealth()} builtAt={builtAt} />
           </div>
           {children}
         </main>

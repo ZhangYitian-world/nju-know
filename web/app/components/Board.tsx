@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { ArrowLeft, ArrowRight, CalendarCheck, LayoutGrid, Newspaper, Pin, Search } from "lucide-react";
 import { ACTIVITY_CATEGORIES, NOTICE_CATEGORIES, type Category, type Kind } from "@/lib/classify";
 import type { Item } from "@/lib/data";
@@ -12,13 +12,26 @@ const GROUPS: { kind: Kind; icon: typeof Newspaper; categories: readonly Categor
   { kind: "通知", icon: Newspaper, categories: NOTICE_CATEGORIES },
 ];
 
-// Tailwind 只能识别完整类名，所以列数用查表
-const COLUMNS = {
-  6: "grid-cols-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6",
-  4: "grid-cols-2 md:grid-cols-3 xl:grid-cols-4",
-  2: "grid-cols-1 sm:grid-cols-2",
+const COLUMN_OPTIONS = {
+  narrow: [3, 2, 1],
+  medium: [4, 3, 2],
+  wide: [6, 4, 2],
 } as const;
-type Cols = keyof typeof COLUMNS;
+const GRID_CLASSES = { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-3", 4: "grid-cols-4", 6: "grid-cols-6" } as const;
+type ColumnChoice = 0 | 1 | 2;
+
+function subscribeToViewport(update: () => void) {
+  window.addEventListener("resize", update);
+  return () => window.removeEventListener("resize", update);
+}
+
+function viewportSize(): keyof typeof COLUMN_OPTIONS {
+  if (window.innerWidth >= 1280) return "wide";
+  if (window.innerWidth >= 1024) return "medium";
+  return "narrow";
+}
+
+function initialViewportSize() { return "narrow" as const; }
 
 type Filter = { kind: Kind | null; category: Category | null };
 
@@ -26,7 +39,10 @@ export default function Board({ items }: { items: Item[] }) {
   const [query, setQuery] = useState("");
   const [channel, setChannel] = useState<Item["channel"] | null>(null);
   const [filter, setFilter] = useState<Filter>({ kind: null, category: null });
-  const [cols, setCols] = useState<Cols>(4);
+  const [columnChoice, setColumnChoice] = useState<ColumnChoice>(1);
+  const viewport = useSyncExternalStore(subscribeToViewport, viewportSize, initialViewportSize);
+  const columnOptions = COLUMN_OPTIONS[viewport];
+  const cols = columnOptions[columnChoice];
 
   const matched = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -131,22 +147,16 @@ export default function Board({ items }: { items: Item[] }) {
             </span>
           </a>
         )}
-        {([
-          { visibility: "sm:hidden", divisor: 2 },
-          { visibility: "hidden sm:block", divisor: 1 },
-        ] as const).map(({ visibility, divisor }) => (
-          <select
-            key={divisor}
-            aria-label="卡片列数"
-            value={cols}
-            onChange={(e) => setCols(Number(e.target.value) as Cols)}
-            className={`${visibility} ml-auto rounded-xl bg-white px-3 py-2 text-sm ring-1 ring-stone-200 outline-none`}
-          >
-            {([6, 4, 2] as const).map((value) => (
-              <option key={value} value={value}>{value / divisor} 列</option>
-            ))}
-          </select>
-        ))}
+        <select
+          aria-label="卡片列数"
+          value={columnChoice}
+          onChange={(e) => setColumnChoice(Number(e.target.value) as ColumnChoice)}
+          className="ml-auto rounded-xl bg-white px-3 py-2 text-sm ring-1 ring-stone-200 outline-none"
+        >
+          {columnOptions.map((value, choice) => (
+            <option key={choice} value={choice}>{value} 列</option>
+          ))}
+        </select>
       </div>
 
       {filter.category && (
@@ -163,7 +173,7 @@ export default function Board({ items }: { items: Item[] }) {
         if (list.length === 0) return null;
         const Icon = CATEGORY_STYLE[c].icon;
         const full = filter.category !== null;
-        const preview = list.slice(0, cols * 2);
+        const preview = list.slice(0, COLUMN_OPTIONS.wide[columnChoice] * 2);
         return (
           <section key={c} className="board-panel" aria-label={`${c}分类`}>
             <header className="mb-3 flex items-center gap-2">
@@ -181,7 +191,7 @@ export default function Board({ items }: { items: Item[] }) {
                 </button>
               )}
             </header>
-              <div className={`grid ${COLUMNS[cols]} gap-4 items-stretch`}>
+              <div className={`grid ${GRID_CLASSES[cols]} gap-4 items-stretch`}>
                 {(full ? list : preview).map((i) => (
                   <Card key={i.id} item={i} />
                 ))}

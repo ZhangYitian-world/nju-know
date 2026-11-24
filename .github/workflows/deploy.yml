@@ -142,8 +142,8 @@ jobs:
           CLASSIFIER_PROVIDER: ${{ inputs.review_id != '' && 'deepseek' || vars.CLASSIFIER_PROVIDER }}
           ENRICH_REVIEW_ID: ${{ inputs.review_id }}
           ENRICH_REVIEW_URLS: ${{ inputs.review_urls }}
-          ENRICH_MAX_ITEMS: ${{ inputs.review_id != '' && '800' || '100' }}
-          ENRICH_MAX_SECONDS: ${{ inputs.review_id != '' && '600' || '120' }}
+          ENRICH_MAX_ITEMS: ${{ inputs.review_id != '' && '800' || '500' }}
+          ENRICH_MAX_SECONDS: ${{ inputs.review_id != '' && '600' || '600' }}
         run: python enrich_llm.py
       - name: 保存公开分类复核报告
         if: inputs.review_id != ''

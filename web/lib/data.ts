@@ -26,6 +26,7 @@ type RawNotice = {
 };
 
 type LlmResult = {
+  schedule?: Item["schedule"];
   kind: Kind;
   category: Category;
   signup: boolean;
@@ -89,7 +90,7 @@ function readJson<T>(file: string, fallback: T): T {
 }
 
 function validLlm(r: LlmResult | undefined, notice: RawNotice): r is LlmResult {
-  if (!r || r.status !== "accepted" || r.schema_version !== 3 || r.confidence < 0.8 || !Number.isFinite(r.confidence)) return false;
+  if (!r || r.status !== "accepted" || ![3, 4].includes(r.schema_version) || r.confidence < 0.8 || !Number.isFinite(r.confidence)) return false;
   if (r.kind !== "活动" && r.kind !== "通知") return false;
   const input = [notice.title.trim(), notice.organizer || notice.source, notice.date, [...(notice.summary || "").replace(/\s+/g, " ").trim()].slice(0, 500).join("")].join("\n");
   if (r.input_hash !== createHash("sha256").update(input).digest("hex")) return false;
@@ -115,6 +116,7 @@ export function loadItems(): Item[] {
         channels: [channel],
         origins: [{ title: r.title.trim(), organizer, channel, url: r.url, date: r.date }],
         ...(useAi ? { kind: ai.kind, category: ai.category } : classify(r.title, organizer, r.type, r.summary)),
+        schedule: useAi && ai.kind === "活动" ? ai.schedule : undefined,
         date: r.date,
         time: r.time ?? "",
         cover: r.cover ?? "",

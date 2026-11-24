@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarDays, Database, Rss } from "lucide-react";
+import { CalendarDays, Database, Newspaper, Rss, Search } from "lucide-react";
 import { loadItems, loadWechatHealth } from "@/lib/data";
 import SyncStatus from "./components/SyncStatus";
 import "./globals.css";
@@ -11,6 +11,8 @@ export const metadata: Metadata = {
 };
 
 const NAV = [
+  { href: "/", label: "智能找活动", icon: Search },
+  { href: "/feed/", label: "信息流", icon: Newspaper },
   { href: "/calendar/", label: "活动日历", icon: CalendarDays },
   { href: "/sources/", label: "信息源", icon: Database },
   { href: "/rss.xml", label: "RSS", icon: Rss },
@@ -26,7 +28,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="zh-CN" className="h-full antialiased">
       <body className="flex min-h-full flex-col">
-        <a href="#main" className="sr-only focus:not-sr-only">跳转至通知列表</a>
+        <a href="#main" className="sr-only focus:not-sr-only">跳转至主要内容</a>
         <header className="mx-auto flex w-full max-w-[1680px] flex-wrap items-center gap-4 px-6 pt-6 pb-2">
           <Link href="/" className="flex items-center gap-3">
             <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--nju)] text-xl font-black text-white shadow-md shadow-[var(--nju)]/30">
@@ -36,7 +38,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               「不南知道」<span className="ml-1 font-extrabold">NJU Know</span>
             </span>
           </Link>
-          <nav className="flex w-full gap-2 sm:ml-auto sm:w-auto">
+          <nav className="flex w-full flex-wrap gap-2 lg:ml-auto lg:w-auto">
             {NAV.map((n) => (
               <Link
                 key={n.href}
@@ -50,14 +52,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </nav>
         </header>
         <main id="main" className="mx-auto w-full max-w-[1680px] flex-1 px-6 py-4">
-          <div className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+          {children}
+          <details className="source-status">
+            <summary>数据来源与更新状态</summary>
             <p>
             信息请以原发布单位为准。
             {latestWechat && ` 公众号收录文章的最新发布日期：${latestWechat}。`}
             </p>
             <SyncStatus initial={loadWechatHealth()} builtAt={builtAt} />
-          </div>
-          {children}
+          </details>
         </main>
         <footer className="px-6 py-8 text-center text-xs leading-6 text-stone-500">
           <p>页面构建于 {updated} · 内容版权归原发布单位所有</p>

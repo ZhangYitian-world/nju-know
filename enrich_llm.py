@@ -20,7 +20,7 @@ import scraper
 DATA_DIR = Path(os.environ.get("NJU_DATA_DIR", scraper.BASE / "data"))
 SOURCE_FILES = [DATA_DIR / "notices.json", DATA_DIR / "wechat.json"]
 CACHE_FILE = DATA_DIR / "llm.json"
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 CATEGORIES = {
     "活动": ["文体", "社团", "讲座", "学习", "就业", "留学"],
     "通知": ["校园", "科研", "院系", "生活", "学业", "奖学金", "服务"],
@@ -60,6 +60,7 @@ INSTRUCTIONS = """你在分类南京大学校园信息。文章的标题和简�
 """
 PROMPT = INSTRUCTIONS + """
 类别：活动可选 文体/社团/讲座/学习/就业/留学；通知可选 校园/科研/院系/生活/学业/奖学金/服务。
+活动另返回 schedule 对象，字段 date（YYYY-MM-DD）、start（HH:MM）、campus（鼓楼/仙林/苏州/浦口）、signup_deadline（YYYY-MM-DD 或 YYYY-MM-DD HH:MM）。每项为 {"value":"规范值","quote":"标题或摘录中支持该值的连续原句"}。仅收录单场活动的明确安排，多场汇总或无法确定则省略。不得用发布日期代替举办日期、报名截止代替开场时间，年份不明确则省略日期。
 signup 表示是否明确需要报名、申报或预约。summary 为不超过40字的事实摘要，信息不足时为空，禁止编造时间地点。
 confidence 为0至1的自评置信程度（不是已校准概率）。只输出 JSON：
 {"results":[{"i":0,"kind":"通知","category":"院系","signup":false,"summary":"","confidence":0.9}]}
@@ -122,7 +123,7 @@ def article_state(notice):
 def call_deepseek(batch, key, model, url):
     data = post_json(url, key, {
         "model": model, "messages": [{"role": "system", "content": PROMPT}, {"role": "user", "content": json.dumps([{ "i": i, **article_state(n)} for i, n in enumerate(batch)], ensure_ascii=False)}],
-        "response_format": {"type": "json_object"}, "thinking": {"type": "disabled"}, "max_tokens": 2400,
+        "response_format": {"type": "json_object"}, "thinking": {"type": "disabled"}, "max_tokens": 5200,
     })
     API_STATS["requests"] += 1
     usage = data.get("usage") or {}
@@ -200,6 +201,7 @@ def call_hybrid(batch, keys, model, _url):
         if good_decision or good_review:
             chosen = dict(decision if good_decision else review)
             chosen["summary"] = review["summary"] if good_review else ""
+            chosen["schedule"] = review.get("schedule") if good_review else None
             chosen["classification_provider"] = "jev" if good_decision else "deepseek"
             chosen["complete"] = not keys.get("_jev_disabled") and not keys.get("_deepseek_disabled")
             results.append(chosen)
@@ -214,6 +216,38 @@ def valid(result):
     return (result["kind"] in CATEGORIES and result.get("category") in CATEGORIES[result["kind"]]
             and type(result.get("signup")) is bool and isinstance(result.get("summary"), str)
             and finite_probability(result.get("confidence")))
+
+
+def checked_schedule(schedule, notice):
+    if not isinstance(schedule, dict):
+        return {}
+    article = article_state(notice)
+    checked = {}
+    formats = {"date": ("%Y-%m-%d",), "start": ("%H:%M",),
+               "signup_deadline": ("%Y-%m-%d", "%Y-%m-%d %H:%M")}
+    for key in (*formats, "campus"):
+        field = schedule.get(key)
+        if not isinstance(field, dict):
+            continue
+        value, quote = field.get("value"), field.get("quote")
+        if not isinstance(value, str) or not isinstance(quote, str) or not quote.strip():
+            continue
+        if not any(quote in article[k] for k in ("title", "excerpt")):
+            continue
+        if key == "campus":
+            if value not in ("鼓楼", "仙林", "苏州", "浦口") or value not in quote:
+                continue
+        else:
+            for fmt in formats[key]:
+                try:
+                    if datetime.strptime(value, fmt).strftime(fmt) == value:
+                        break
+                except ValueError:
+                    pass
+            else:
+                continue
+        checked[key] = {"value": value, "quote": quote}
+    return checked
 
 
 def current(entry, notice, provider, model):
@@ -301,6 +335,8 @@ def main():
             if status == "accepted":
                 entry.update({field: result[field] for field in ("kind", "category", "signup", "confidence")})
                 entry["summary"] = result["summary"].strip()[:40]
+                if result["kind"] == "活动":
+                    entry["schedule"] = checked_schedule(result.get("schedule"), notice)
                 accepted += 1
             else:
                 abstained += 1

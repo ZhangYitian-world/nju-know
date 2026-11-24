@@ -2,7 +2,9 @@ import type { Category, Kind } from "./classify";
 
 export type Channel = "官网" | "公众号";
 export type Origin = { title: string; organizer: string; channel: Channel; url: string; date: string };
+export type Schedule = Partial<Record<"date" | "start" | "campus" | "signup_deadline", { value: string; quote: string }>>;
 export type Item = {
+  schedule?: Schedule;
   id: string; title: string; organizer: string; channel: Channel;
   kind: Kind; category: Category; date: string; time: string;
   cover: string; deadline: string; needsSignup: boolean; summary: string; url: string;

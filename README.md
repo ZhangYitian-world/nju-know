@@ -2,7 +2,7 @@
 
 [![Build and Deploy](https://github.com/ZhangYitian-world/nju-know/actions/workflows/deploy.yml/badge.svg)](https://github.com/ZhangYitian-world/nju-know/actions/workflows/deploy.yml)
 
-把分散在南京大学各院系官网与公众号的校园信息，整理到一个可搜索、可筛选、可订阅的页面。
+汇集南京大学校内单位官网和公众号发布的校园通知、讲座与活动，支持按关键词搜索、按类别筛选和 RSS 订阅。
 
 **在线访问：[njuknow.zhangyitian.com](https://njuknow.zhangyitian.com/)**
 
@@ -19,7 +19,7 @@
 - **适配电脑与手机**：等高卡片、统一封面与元信息位置，支持切换列数。
 - **自动更新**：公众号每天北京时间 08:30 采集，官网每 3 小时检查，GitHub Actions 分类并发布，不依赖个人电脑开机，提供来源状态、活动日历和 RSS。
 
-活动分类：文体、社团、讲座、学习、就业、留学。
+活动分类：文体、社团、讲座、学习、就业、留学。其中「就业」收录来源单位发布的职业发展活动、招聘汇总等文章，点击可查看原文。
 
 通知分类：校园、科研、院系、生活、学业、奖学金、服务。
 

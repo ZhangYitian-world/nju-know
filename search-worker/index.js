@@ -21,8 +21,15 @@ export default {
     if (!(await env.LIMIT.limit({ key: request.headers.get('CF-Connecting-IP') || 'unknown' })).success) return respond({}, 429);
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
     try {
-      const result = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', { messages: [{ role: 'system', content: instruction }, { role: 'user', content: JSON.stringify({ today, query: body.query }) }], max_tokens: 220, temperature: 0 });
-      const fields = typeof result.response === 'object' ? result.response : JSON.parse(result.response.match(/\{[\s\S]*\}/)?.[0] || 'null');
+      const result = await fetch('https://api.deepseek.com/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${env.DEEPSEEK_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'deepseek-chat', messages: [{ role: 'system', content: instruction }, { role: 'user', content: JSON.stringify({ today, query: body.query }) }], max_tokens: 220, temperature: 0, response_format: { type: 'json_object' } })
+      });
+      if (!result.ok) return respond({}, 502);
+      const completion = await result.json();
+      const content = completion.choices?.[0]?.message?.content || '';
+      const fields = JSON.parse(content.match(/\{[\s\S]*\}/)?.[0] || 'null');
       if (!fields || !Array.isArray(fields.keywords)) return respond({}, 502);
       return respond({ date: validDate(fields.date), afterTime: /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(fields.afterTime) ? fields.afterTime : '', campus: campuses.includes(fields.campus) ? fields.campus : '', category: categories.includes(fields.category) ? fields.category : '', keywords: [...new Set(fields.keywords.filter(word => typeof word === 'string' && word.trim() && word.length <= 32))].slice(0, 5) });
     } catch (error) { console.warn(String(error.message).slice(0, 180)); return respond({}, 503); }

@@ -65,6 +65,9 @@ export default function Discovery({ items }: { items: Item[] }) {
     setAiCriteria(null);
     setDraft(clean);
     setQuery(clean);
+    setTimeout(() => {
+      document.querySelector(".results-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
   }
 
   return (

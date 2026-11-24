@@ -33,7 +33,7 @@ export function parseRequest(input: string, now = new Date()): RequestCriteria {
     const target = new Date(`${shanghaiDay}T00:00:00Z`);
     target.setUTCDate(target.getUTCDate() - (target.getUTCDay() + 6) % 7 + (weekdayMatch[1] + 6) % 7 + (nextWeek ? 7 : 0));
     date = target.toISOString().slice(0, 10);
-    rest = rest.replace(/[本这下]/, " ");
+    rest = rest.replace(/^[本这下]\s*/, " ");
   }
   let afterTime = "";
   const timeMatch = rest.match(/(?:下午|午后|傍晚)?[\s，,]*(\d{1,2})(?::(\d{2})|点(?:半|(\d{1,2})分?)?)[\s，,]*(?:以后|之后|往后|后|以后都可以)/);
@@ -58,7 +58,8 @@ export function parseRequest(input: string, now = new Date()): RequestCriteria {
 
   const category = ACTIVITY_CATEGORIES.find((label) => rest.includes(label)) ?? "";
   if (category) rest = rest.replace(category, " ");
-  rest = rest.replace(/想听|本周|这周|下周|最近|之后|以后|下午|上午|晚上|傍晚|活动|找一下|帮我|最好|想要|想参加|可以|的|在|校区/g, " ");
+  rest = rest.replace(/(?:下午|午后|傍晚|上午|晚上)?\s*\d{1,2}(?::\d{2}|点(?:半|\d{1,2}分?)?)\s*(?:才下课|之后|以后|往后|后|以后都可以)/g, " ");
+  rest = rest.replace(/想听|听个|才下课|下课早?|本周|这周|下周|最近|之后|以后|下午|上午|晚上|傍晚|活动|找一下|帮我|最好|想要|想参加|想找个|不用报名|有什么|有没有|可以|的|在|校区|才|个|点/g, " ");
   const keywords = rest.split(/[\s，,。.!！?？、]+/).map((word) => word.trim()).filter((word) => word.length > 1);
   return { date, category, weekday: weekdayMatch?.[1] ?? null, afterTime, campus, keywords, count: Number(Boolean(weekdayMatch)) + Number(Boolean(afterTime)) + Number(Boolean(campus)) + Number(Boolean(category)) };
 }

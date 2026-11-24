@@ -1,0 +1,8 @@
+{
+  "name": "nju-know-search",
+  "main": "index.js",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "ai": { "binding": "AI" },
+  "ratelimits": [{ "name": "LIMIT", "namespace_id": "1017", "simple": { "limit": 12, "period": 60 } }]
+}

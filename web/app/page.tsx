@@ -1,6 +1,6 @@
 import { loadItems } from "@/lib/data";
-import Board from "./components/Board";
+import Discovery from "./components/Discovery";
 
 export default function Home() {
-  return <Board items={loadItems()} />;
+  return <Discovery items={loadItems()} />;
 }
